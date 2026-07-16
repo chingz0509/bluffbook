@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#101415" />
+    <title>BluffBook</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <h1>BluffBook</h1>
+        </div>
+      </header>
+
+      <section class="panel poker-board" aria-label="公共牌发牌动画">
+        <canvas class="fx-canvas" id="fxCanvas" aria-hidden="true"></canvas>
+        <div class="board-head">
+          <p class="section-label">Community Cards</p>
+          <span>翻牌 · 转牌 · 河牌</span>
+        </div>
+        <div class="card-stage" aria-hidden="true">
+          <span class="poker-card red" style="--delay: 120ms">A♥</span>
+          <span class="poker-card" style="--delay: 260ms">K♠</span>
+          <span class="poker-card red" style="--delay: 400ms">Q♦</span>
+          <span class="poker-card" style="--delay: 960ms">J♣</span>
+          <span class="poker-card red" style="--delay: 1440ms">10♥</span>
+        </div>
+      </section>
+
+      <nav class="tabs" aria-label="功能切换">
+        <button class="tab active" data-tab="table" type="button">本局</button>
+        <button class="tab" data-tab="settle" type="button">结账</button>
+        <button class="tab" data-tab="history" type="button">历史</button>
+      </nav>
+
+      <section class="tab-view active" id="tableView">
+        <form class="add-player" id="addPlayerForm">
+          <input id="playerName" autocomplete="off" placeholder="玩家姓名" />
+          <button class="primary-button" type="submit">添加</button>
+        </form>
+
+        <section class="player-list" id="playerList" aria-live="polite"></section>
+
+        <section class="table-footer" id="tableFooter" aria-label="本局汇总">
+          <div>
+            <span>总买入</span>
+            <strong id="totalBuyIn">0</strong>
+          </div>
+          <button class="primary-button" id="goSettle" type="button">去结账</button>
+        </section>
+      </section>
+
+      <section class="tab-view" id="settleView">
+        <section class="panel settle-entry-panel">
+          <p class="section-label">清点剩余</p>
+          <h2>录入最终筹码</h2>
+          <div class="settlement-list" id="resultList"></div>
+        </section>
+
+        <section class="panel settle-status">
+          <div class="settle-head">
+            <div>
+              <p class="section-label">结账状态</p>
+              <h2 id="settleStatusTitle">等待玩家数据</h2>
+              <p class="muted" id="settleStatusCopy">结束后在这里录入每个人剩余筹码，会自动生成转账建议。</p>
+            </div>
+            <button class="primary-button settle-complete" id="completeGame" type="button">账目结清</button>
+          </div>
+        </section>
+
+        <section class="panel" id="transferPanel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-label">转账建议</p>
+              <h2>最少笔数</h2>
+            </div>
+          </div>
+          <div class="transfer-list" id="transferList"></div>
+        </section>
+      </section>
+
+      <section class="tab-view" id="historyView">
+        <section class="panel leaderboard-panel">
+          <p class="section-label">月度排行</p>
+          <h2 id="historyMonthTitle">本月盈利榜</h2>
+          <p class="muted" id="historyMeta">账目结清后会自动进入历史和排行榜。</p>
+          <div class="leaderboard-list" id="leaderboardList"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-label">历史牌局</p>
+            </div>
+          </div>
+          <div class="history-list" id="historyList"></div>
+        </section>
+      </section>
+
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

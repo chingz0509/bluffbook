@@ -361,7 +361,7 @@ input:disabled {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 6px;
   margin: 14px 0;
   padding: 5px;
@@ -748,6 +748,105 @@ textarea:focus {
   color: var(--blue);
 }
 
+.hand-rules-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.hand-rank-list,
+.rule-note-list {
+  display: grid;
+  gap: 8px;
+}
+
+.hand-rank {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 70px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent),
+    var(--panel);
+}
+
+.hand-rank.top-hand {
+  border-color: rgba(200, 161, 95, 0.42);
+  background:
+    linear-gradient(135deg, rgba(200, 161, 95, 0.16), transparent 56%),
+    var(--panel);
+}
+
+.hand-rank h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  line-height: 1.15;
+}
+
+.hand-rank p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.card-sample {
+  display: grid;
+  place-items: center;
+  min-width: 72px;
+  min-height: 38px;
+  padding: 0 8px;
+  border: 1px solid rgba(243, 238, 228, 0.2);
+  border-radius: 7px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(220, 222, 215, 0.9)),
+    #f5f1e8;
+  color: #161514;
+  font-weight: 950;
+  letter-spacing: 0;
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.24);
+  white-space: nowrap;
+}
+
+.card-sample.red {
+  color: #a83237;
+}
+
+.rule-note-panel {
+  box-shadow: none;
+}
+
+.rule-note-list {
+  gap: 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+.rule-note-list div {
+  display: grid;
+  gap: 4px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.rule-note-list div:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.rule-note-list strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.rule-note-list span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .empty {
   padding: 16px;
   border: 1px dashed var(--line);
@@ -786,6 +885,11 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 
+  .tab {
+    min-height: 38px;
+    font-size: 13px;
+  }
+
   .settle-row {
     display: grid;
     grid-template-columns: 1fr auto;
@@ -802,5 +906,17 @@ textarea:focus {
 
   .table-footer strong {
     font-size: 18px;
+  }
+
+  .hand-rank {
+    grid-template-columns: auto 1fr;
+  }
+
+  .card-sample {
+    grid-column: 2;
+    justify-self: start;
+    min-width: 0;
+    min-height: 32px;
+    font-size: 13px;
   }
 }

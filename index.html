@@ -34,6 +34,7 @@
         <button class="tab active" data-tab="table" type="button">本局</button>
         <button class="tab" data-tab="settle" type="button">结账</button>
         <button class="tab" data-tab="history" type="button">历史</button>
+        <button class="tab" data-tab="rules" type="button">牌力</button>
       </nav>
 
       <section class="tab-view active" id="tableView">
@@ -97,6 +98,124 @@
             </div>
           </div>
           <div class="history-list" id="historyList"></div>
+        </section>
+      </section>
+
+      <section class="tab-view" id="rulesView">
+        <section class="panel hand-rules-panel">
+          <p class="section-label">牌力速查</p>
+          <h2>德州扑克牌型大小</h2>
+          <p class="muted">用自己 2 张手牌和桌面 5 张公共牌，选出最大的 5 张组成最终牌型。</p>
+
+          <div class="hand-rank-list" aria-label="牌型从大到小">
+            <article class="hand-rank top-hand">
+              <span class="rank-badge">1</span>
+              <div>
+                <h3>皇家同花顺</h3>
+                <p>A K Q J 10，同花色。</p>
+              </div>
+              <span class="card-sample red">A♥ K♥</span>
+            </article>
+
+            <article class="hand-rank">
+              <span class="rank-badge">2</span>
+              <div>
+                <h3>同花顺</h3>
+                <p>连续 5 张，且同花色。</p>
+              </div>
+              <span class="card-sample">9♠ 8♠</span>
+            </article>
+
+            <article class="hand-rank">
+              <span class="rank-badge">3</span>
+              <div>
+                <h3>四条</h3>
+                <p>4 张点数一样，加 1 张边牌。</p>
+              </div>
+              <span class="card-sample red">Q♦ Q♥</span>
+            </article>
+
+            <article class="hand-rank">
+              <span class="rank-badge">4</span>
+              <div>
+                <h3>葫芦</h3>
+                <p>三条 + 一对。</p>
+              </div>
+              <span class="card-sample">J♣ J♠</span>
+            </article>
+
+            <article class="hand-rank">
+              <span class="rank-badge">5</span>
+              <div>
+                <h3>同花</h3>
+                <p>5 张同花色，不要求连续。</p>
+              </div>
+              <span class="card-sample red">A♦ 8♦</span>
+            </article>
+
+            <article class="hand-rank">
+              <span class="rank-badge">6</span>
+              <div>
+                <h3>顺子</h3>
+                <p>连续 5 张，不要求同花色。</p>
+              </div>
+              <span class="card-sample">10♠ 9♦</span>
+            </article>
+
+            <article class="hand-rank">
+              <span class="rank-badge">7</span>
+              <div>
+                <h3>三条</h3>
+                <p>3 张点数一样，另外 2 张比边牌。</p>
+              </div>
+              <span class="card-sample red">7♥ 7♣</span>
+            </article>
+
+            <article class="hand-rank">
+              <span class="rank-badge">8</span>
+              <div>
+                <h3>两对</h3>
+                <p>两组对子，先比大对子。</p>
+              </div>
+              <span class="card-sample">K♠ 5♥</span>
+            </article>
+
+            <article class="hand-rank">
+              <span class="rank-badge">9</span>
+              <div>
+                <h3>一对</h3>
+                <p>一组对子，其余 3 张比边牌。</p>
+              </div>
+              <span class="card-sample red">A♣ A♦</span>
+            </article>
+
+            <article class="hand-rank">
+              <span class="rank-badge">10</span>
+              <div>
+                <h3>高牌</h3>
+                <p>没有以上牌型，按最大牌开始比。</p>
+              </div>
+              <span class="card-sample">A♠ Q♣</span>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel rule-note-panel">
+          <p class="section-label">同牌型怎么比</p>
+          <div class="rule-note-list">
+            <div>
+              <strong>先比主要牌</strong>
+              <span>比如一对 A 大于一对 K，三条 9 大于三条 8。</span>
+            </div>
+            <div>
+              <strong>再比边牌</strong>
+              <span>主要牌一样时，从最大的边牌一张张往下比。</span>
+            </div>
+            <div>
+              <strong>A 可以最小</strong>
+              <span>A-2-3-4-5 是最小顺子，10-J-Q-K-A 是最大顺子。</span>
+            </div>
+          </div>
         </section>
       </section>
 

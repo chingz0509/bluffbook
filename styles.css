@@ -793,25 +793,36 @@ textarea:focus {
   line-height: 1.4;
 }
 
-.card-sample {
+.hand-cards {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 132px;
+  padding-left: 8px;
+}
+
+.mini-card {
   display: grid;
   place-items: center;
-  min-width: 72px;
-  min-height: 38px;
-  padding: 0 8px;
+  width: 32px;
+  height: 42px;
+  margin-left: -8px;
   border: 1px solid rgba(243, 238, 228, 0.2);
-  border-radius: 7px;
+  border-radius: 6px;
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(220, 222, 215, 0.9)),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(220, 222, 215, 0.9)),
     #f5f1e8;
   color: #161514;
+  font-size: 13px;
   font-weight: 950;
   letter-spacing: 0;
   box-shadow: 0 10px 18px rgba(0, 0, 0, 0.24);
-  white-space: nowrap;
 }
 
-.card-sample.red {
+.mini-card:first-child {
+  margin-left: 0;
+}
+
+.mini-card.red {
   color: #a83237;
 }
 
@@ -912,11 +923,17 @@ textarea:focus {
     grid-template-columns: auto 1fr;
   }
 
-  .card-sample {
+  .hand-cards {
     grid-column: 2;
     justify-self: start;
-    min-width: 0;
-    min-height: 32px;
-    font-size: 13px;
+    min-width: 120px;
+    padding-left: 0;
+  }
+
+  .mini-card {
+    width: 30px;
+    height: 38px;
+    margin-left: -7px;
+    font-size: 12px;
   }
 }

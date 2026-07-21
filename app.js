@@ -49,6 +49,8 @@ els.addPlayerForm.addEventListener("submit", (event) => {
     buyIn: 200,
     buyInCount: 1,
     cashOut: 0,
+    isAway: false,
+    leftAt: null,
   });
   els.playerName.value = "";
   saveAndRender();
@@ -185,6 +187,7 @@ function saveAndRender() {
 
 function normalizePlayer(player) {
   const buyIn = number(player.buyIn);
+  const isAway = Boolean(player.isAway);
   return {
     ...player,
     buyIn,
@@ -192,6 +195,8 @@ function normalizePlayer(player) {
       ? Math.max(0, Number(player.buyInCount))
       : Math.max(0, Math.round(buyIn / 200)),
     cashOut: player.cashOut ?? 0,
+    isAway,
+    leftAt: isAway ? player.leftAt || new Date().toISOString() : null,
   };
 }
 
@@ -224,23 +229,44 @@ function renderPlayers() {
 
   els.playerList.innerHTML = state.players
     .map((player) => {
+      const profit = number(player.cashOut) - number(player.buyIn);
+      const awaySummary = player.isAway
+        ? `
+            <div class="player-status">
+              <span>已离桌</span>
+              <strong class="${profitClass(profit)}">剩余 ${formatMoney(player.cashOut)} / ${signedMoney(profit)}</strong>
+            </div>
+          `
+        : "";
+      const actions = player.isAway
+        ? `
+            <div class="away-actions">
+              <button type="button" data-edit-away>修改剩余</button>
+              <button type="button" data-restore>恢复在桌</button>
+            </div>
+          `
+        : `
+            <div class="quick-actions">
+              <button type="button" data-add="200">+200</button>
+              <button type="button" data-add="400">+400</button>
+              <button type="button" data-add="-200">-200</button>
+              <button type="button" data-leave>离桌</button>
+            </div>
+          `;
       return `
         <div class="swipe-row" data-id="${player.id}">
           <button class="swipe-delete" type="button" data-remove>删除</button>
-          <article class="player-card swipe-card">
+          <article class="player-card swipe-card ${player.isAway ? "is-away" : ""}">
             <div class="player-head">
               <div>
                 <h3 class="player-name">${escapeHtml(player.name)}</h3>
+                ${awaySummary}
               </div>
               <div class="buyin-stack">
                 <strong class="player-profit">累计买入：${formatMoney(player.buyIn)}/${number(player.buyInCount)} 次</strong>
               </div>
             </div>
-            <div class="quick-actions">
-              <button type="button" data-add="200">+200</button>
-              <button type="button" data-add="400">+400</button>
-              <button type="button" data-add="-200">-200</button>
-            </div>
+            ${actions}
           </article>
         </div>
       `;
@@ -254,12 +280,51 @@ function renderPlayers() {
     row.querySelectorAll("[data-add]").forEach((button) => {
       button.addEventListener("click", () => {
         const player = state.players.find((item) => item.id === id);
+        if (player.isAway) return;
         const delta = number(button.dataset.add);
         player.buyIn = Math.max(0, number(player.buyIn) + delta);
         player.buyInCount = Math.max(0, number(player.buyInCount) + delta / 200);
         saveAndRender();
       });
     });
+
+    const leaveButton = row.querySelector("[data-leave]");
+    if (leaveButton) {
+      leaveButton.addEventListener("click", () => {
+        const player = state.players.find((item) => item.id === id);
+        const cashOut = askCashOut(player, "输入离桌时剩余筹码");
+        if (cashOut === null) return;
+        player.cashOut = cashOut;
+        player.isAway = true;
+        player.leftAt = new Date().toISOString();
+        saveAndRender();
+        showToast(`${player.name} 已离桌`);
+      });
+    }
+
+    const editAwayButton = row.querySelector("[data-edit-away]");
+    if (editAwayButton) {
+      editAwayButton.addEventListener("click", () => {
+        const player = state.players.find((item) => item.id === id);
+        const cashOut = askCashOut(player, "修改离桌剩余筹码");
+        if (cashOut === null) return;
+        player.cashOut = cashOut;
+        saveAndRender();
+      });
+    }
+
+    const restoreButton = row.querySelector("[data-restore]");
+    if (restoreButton) {
+      restoreButton.addEventListener("click", () => {
+        const player = state.players.find((item) => item.id === id);
+        const confirmed = window.confirm(`${player.name} 恢复在桌？结账时需要重新录入最终剩余。`);
+        if (!confirmed) return;
+        player.isAway = false;
+        player.leftAt = null;
+        player.cashOut = 0;
+        saveAndRender();
+      });
+    }
 
     row.querySelector("[data-remove]").addEventListener("click", () => {
       const player = state.players.find((item) => item.id === id);
@@ -313,6 +378,7 @@ function renderSettlement() {
   const { totalBuyIn, totalCashOut, delta } = totals();
   const hasPlayers = state.players.length > 0;
   const isBalanced = hasPlayers && delta === 0;
+  const awayCount = state.players.filter((player) => player.isAway).length;
 
   els.settleStatusTitle.textContent = !hasPlayers
     ? "等待玩家数据"
@@ -323,7 +389,7 @@ function renderSettlement() {
     ? "添加玩家并记录买入后，结账时在这里录入剩余筹码。"
     : isBalanced
       ? `总买入和已清点剩余均为 ${formatMoney(totalBuyIn)}。`
-      : `已清点 ${formatMoney(totalCashOut)}，总买入 ${formatMoney(totalBuyIn)}，请继续核对最终筹码。`;
+      : `已清点 ${formatMoney(totalCashOut)}，总买入 ${formatMoney(totalBuyIn)}，${awayCount ? `${awayCount} 人已离桌，` : ""}请继续核对最终筹码。`;
   els.settleStatusTitle.parentElement.classList.toggle("is-balanced", isBalanced);
   els.settleStatusTitle.parentElement.classList.toggle("has-gap", hasPlayers && !isBalanced);
   els.completeGame.disabled = !isBalanced;
@@ -335,14 +401,14 @@ function renderSettlement() {
         .map((player) => {
           const profit = number(player.cashOut) - number(player.buyIn);
           return `
-            <div class="result-row settle-row" data-id="${player.id}">
+            <div class="result-row settle-row ${player.isAway ? "is-away" : ""}" data-id="${player.id}">
               <div>
                 <span>${escapeHtml(player.name)}</span>
-                <small>买入 ${formatMoney(player.buyIn)}</small>
+                <small>买入 ${formatMoney(player.buyIn)}${player.isAway ? " / 已离桌" : ""}</small>
               </div>
               <label>
-                <span>剩余</span>
-                <input inputmode="decimal" data-field="cashOut" value="${player.cashOut}" />
+                <span>${player.isAway ? "离桌剩余" : "剩余"}</span>
+                <input inputmode="decimal" data-field="cashOut" value="${player.cashOut}" ${player.isAway ? "disabled" : ""} />
               </label>
               <strong class="${profitClass(profit)}">${signedMoney(profit)}</strong>
             </div>
@@ -369,6 +435,7 @@ function renderSettlement() {
   els.resultList.querySelectorAll(".settle-row").forEach((row) => {
     const id = row.dataset.id;
     const input = row.querySelector("input");
+    if (input.disabled) return;
     input.addEventListener("focus", () => input.select());
     input.addEventListener("change", (event) => {
       const player = state.players.find((item) => item.id === id);
@@ -428,6 +495,7 @@ function createHistoryGame() {
       buyIn: number(player.buyIn),
       cashOut: number(player.cashOut),
       profit: number(player.cashOut) - number(player.buyIn),
+      isAway: Boolean(player.isAway),
     })),
   };
 }
@@ -488,7 +556,7 @@ function renderHistory() {
                     (player) => `
                       <div class="detail-row">
                         <span>${escapeHtml(player.name)}</span>
-                        <small>买入 ${formatMoney(player.buyIn)} / 剩余 ${formatMoney(player.cashOut)}</small>
+                        <small>买入 ${formatMoney(player.buyIn)} / 剩余 ${formatMoney(player.cashOut)}${player.isAway ? " / 提前离桌" : ""}</small>
                         <strong class="${profitClass(player.profit)}">${signedMoney(player.profit)}</strong>
                       </div>
                     `,
@@ -544,6 +612,19 @@ function profitClass(value) {
   if (value > 0) return "positive";
   if (value < 0) return "negative";
   return "neutral";
+}
+
+function askCashOut(player, title) {
+  const defaultValue = player.cashOut ? player.cashOut : player.buyIn;
+  const value = window.prompt(`${title}：${player.name}`, defaultValue);
+  if (value === null) return null;
+
+  const amount = number(value);
+  if (!Number.isFinite(Number(value)) || amount < 0) {
+    showToast("请输入有效的筹码数");
+    return null;
+  }
+  return amount;
 }
 
 function escapeHtml(value) {

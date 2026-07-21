@@ -491,6 +491,13 @@ textarea:focus {
     var(--panel);
 }
 
+.player-card.is-away {
+  border-color: rgba(138, 174, 216, 0.42);
+  background:
+    linear-gradient(135deg, rgba(138, 174, 216, 0.12), transparent 58%),
+    var(--panel);
+}
+
 .swipe-card {
   transition: transform 180ms ease;
   touch-action: pan-y;
@@ -532,6 +539,22 @@ textarea:focus {
   min-width: max-content;
 }
 
+.player-status {
+  display: grid;
+  gap: 3px;
+  margin-top: 5px;
+}
+
+.player-status span {
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.player-status strong {
+  font-size: 12px;
+}
+
 .positive {
   color: var(--green);
 }
@@ -546,18 +569,31 @@ textarea:focus {
 
 .quick-actions {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 6px;
   margin-top: 10px;
 }
 
-.quick-actions button {
+.away-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.quick-actions button,
+.away-actions button {
   min-height: 36px;
   border-radius: 8px;
   border: 1px solid var(--line);
   background: var(--field);
   color: var(--text);
   font-weight: 800;
+}
+
+.away-actions button {
+  border-color: rgba(138, 174, 216, 0.28);
+  background: rgba(138, 174, 216, 0.08);
 }
 
 .swipe-delete {
@@ -737,6 +773,12 @@ textarea:focus {
   width: 86px;
   min-height: 38px;
   text-align: right;
+}
+
+.settle-row.is-away input {
+  border-color: rgba(138, 174, 216, 0.24);
+  background: rgba(138, 174, 216, 0.08);
+  color: var(--muted);
 }
 
 .settle-row strong {

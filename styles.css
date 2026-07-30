@@ -361,7 +361,7 @@ input:disabled {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 6px;
   margin: 14px 0;
   padding: 5px;
@@ -459,13 +459,86 @@ textarea:focus {
   line-height: 1;
 }
 
+.signup-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.signup-hero strong {
+  display: grid;
+  place-items: center;
+  width: 74px;
+  min-width: 74px;
+  aspect-ratio: 1;
+  border: 1px solid rgba(200, 161, 95, 0.35);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(200, 161, 95, 0.12), transparent),
+    var(--field);
+  color: var(--accent-strong);
+  font-size: 22px;
+  font-weight: 950;
+}
+
+.signup-hero strong.is-ready {
+  border-color: rgba(121, 200, 145, 0.42);
+  color: var(--green);
+}
+
 .player-list,
+.signup-list,
 .settlement-list,
 .transfer-list,
 .leaderboard-list,
 .history-list {
   display: grid;
   gap: 10px;
+}
+
+.signup-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.signup-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent),
+    var(--panel);
+}
+
+.signup-row div {
+  display: grid;
+  gap: 3px;
+}
+
+.signup-row strong {
+  font-size: 16px;
+}
+
+.signup-row small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.signup-row button {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid rgba(217, 111, 107, 0.24);
+  border-radius: 8px;
+  background: rgba(217, 111, 107, 0.08);
+  color: var(--red);
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .leaderboard-panel .leaderboard-list {

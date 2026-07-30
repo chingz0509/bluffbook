@@ -3,6 +3,7 @@ const storageKey = "texas-ledger-v1";
 const defaultState = {
   startedAt: new Date().toISOString(),
   players: [],
+  signups: [],
   history: [],
 };
 
@@ -12,6 +13,13 @@ const els = {
   fxCanvas: document.querySelector("#fxCanvas"),
   addPlayerForm: document.querySelector("#addPlayerForm"),
   playerName: document.querySelector("#playerName"),
+  signupForm: document.querySelector("#signupForm"),
+  signupName: document.querySelector("#signupName"),
+  signupTitle: document.querySelector("#signupTitle"),
+  signupCopy: document.querySelector("#signupCopy"),
+  signupCount: document.querySelector("#signupCount"),
+  signupList: document.querySelector("#signupList"),
+  startFromSignup: document.querySelector("#startFromSignup"),
   tableFooter: document.querySelector("#tableFooter"),
   totalBuyIn: document.querySelector("#totalBuyIn"),
   goSettle: document.querySelector("#goSettle"),
@@ -43,21 +51,53 @@ els.addPlayerForm.addEventListener("submit", (event) => {
   const name = els.playerName.value.trim();
   if (!name) return;
 
-  state.players.push({
-    id: createId(),
-    name,
-    buyIn: 200,
-    buyInCount: 1,
-    cashOut: 0,
-    isAway: false,
-    leftAt: null,
-  });
+  state.players.push(createPlayer(name));
   els.playerName.value = "";
   saveAndRender();
 });
 
 els.goSettle.addEventListener("click", () => {
   activateTab("settle");
+});
+
+els.signupForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+
+  const name = els.signupName.value.trim();
+  if (!name) return;
+
+  const alreadySigned = state.signups.some((signup) => signup.name.toLowerCase() === name.toLowerCase());
+  if (alreadySigned) {
+    showToast("这个名字已经报名了");
+    return;
+  }
+
+  state.signups.push({
+    id: createId(),
+    name,
+    joinedAt: new Date().toISOString(),
+  });
+  els.signupName.value = "";
+  saveAndRender();
+});
+
+els.startFromSignup.addEventListener("click", () => {
+  if (state.signups.length < 5) {
+    showToast("凑够 5 人再开局");
+    return;
+  }
+
+  if (state.players.length > 0) {
+    const confirmed = window.confirm("本局已有玩家，开局会替换为当前报名名单。继续吗？");
+    if (!confirmed) return;
+  }
+
+  state.players = state.signups.map((signup) => createPlayer(signup.name));
+  state.signups = [];
+  state.startedAt = new Date().toISOString();
+  saveAndRender();
+  activateTab("table");
+  showToast("已按报名名单开局");
 });
 
 els.completeGame.addEventListener("click", () => {
@@ -78,6 +118,7 @@ els.completeGame.addEventListener("click", () => {
     ...defaultState,
     startedAt: new Date().toISOString(),
     players: [],
+    signups: state.signups,
     history: [createHistoryGame(), ...state.history],
   };
   saveAndRender();
@@ -173,6 +214,7 @@ function loadState() {
     return {
       startedAt: saved.startedAt || new Date().toISOString(),
       players: (saved.players || []).map(normalizePlayer),
+      signups: (saved.signups || []).map(normalizeSignup).filter((signup) => signup.name),
       history: Array.isArray(saved.history) ? saved.history : [],
     };
   } catch {
@@ -200,6 +242,26 @@ function normalizePlayer(player) {
   };
 }
 
+function normalizeSignup(signup) {
+  return {
+    id: signup.id || createId(),
+    name: String(signup.name || "").trim(),
+    joinedAt: signup.joinedAt || new Date().toISOString(),
+  };
+}
+
+function createPlayer(name) {
+  return {
+    id: createId(),
+    name,
+    buyIn: 200,
+    buyInCount: 1,
+    cashOut: 0,
+    isAway: false,
+    leftAt: null,
+  };
+}
+
 function totals() {
   const totalBuyIn = state.players.reduce((sum, player) => sum + number(player.buyIn), 0);
   const totalCashOut = state.players.reduce((sum, player) => sum + number(player.cashOut), 0);
@@ -217,6 +279,7 @@ function render() {
   els.totalBuyIn.textContent = formatMoney(totalBuyIn);
 
   renderPlayers();
+  renderSignups();
   renderSettlement();
   renderHistory();
 }
@@ -335,6 +398,47 @@ function renderPlayers() {
     });
 
     attachSwipeDelete(row, card);
+  });
+}
+
+function renderSignups() {
+  const ready = state.signups.length >= 5;
+  const missing = Math.max(0, 5 - state.signups.length);
+
+  els.signupTitle.textContent = ready ? "可以开局了" : "等待报名";
+  els.signupCopy.textContent = ready
+    ? `已报名 ${state.signups.length} 人，由记账员确认后开局。`
+    : `已报名 ${state.signups.length} 人，还差 ${missing} 人开局。`;
+  els.signupCount.textContent = `${state.signups.length}/5`;
+  els.signupCount.classList.toggle("is-ready", ready);
+  els.startFromSignup.disabled = !ready;
+
+  els.signupList.innerHTML = state.signups.length
+    ? state.signups
+        .map(
+          (signup, index) => `
+            <article class="signup-row" data-id="${signup.id}">
+              <span class="rank-badge">${index + 1}</span>
+              <div>
+                <strong>${escapeHtml(signup.name)}</strong>
+                <small>${formatSignupTime(new Date(signup.joinedAt))}</small>
+              </div>
+              <button type="button" data-cancel-signup>取消</button>
+            </article>
+          `,
+        )
+        .join("")
+    : `<div class="empty">还没有人报名。输入名字后点“我要报名”。</div>`;
+
+  els.signupList.querySelectorAll("[data-cancel-signup]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const row = button.closest(".signup-row");
+      const signup = state.signups.find((item) => item.id === row.dataset.id);
+      const confirmed = window.confirm(`取消 ${signup.name} 的报名？`);
+      if (!confirmed) return;
+      state.signups = state.signups.filter((item) => item.id !== row.dataset.id);
+      saveAndRender();
+    });
   });
 }
 
@@ -589,6 +693,10 @@ function formatMonth(date) {
 
 function formatGameDate(date) {
   return `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function formatSignupTime(date) {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")} 报名`;
 }
 
 function number(value) {

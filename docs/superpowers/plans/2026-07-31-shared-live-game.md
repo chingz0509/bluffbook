@@ -44,5 +44,5 @@
 
 - [x] Document the normal viewer URL, recorder URL, synchronization boundary, and recorder-device recovery limitation.
 - [x] Run the full test and syntax-check commands.
-- [ ] Commit and push to `main` so Vercel deploys the feature.
-- [ ] Verify the online API with an isolated internal room key, then remove the test data.
+- [x] Commit and push to `main` so Vercel deploys the feature.
+- [x] Verify the online API with an isolated internal room key, then remove the test player data.

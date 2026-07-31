@@ -360,6 +360,9 @@ input:disabled {
 }
 
 .tabs {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 6px;
@@ -367,7 +370,9 @@ input:disabled {
   padding: 5px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgba(10, 11, 11, 0.72);
+  background: rgba(10, 11, 11, 0.86);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(14px);
 }
 
 .tab {

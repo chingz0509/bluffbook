@@ -80,6 +80,7 @@ async function getSignups(key) {
             id: signup.id || createId(),
             name: String(signup.name || "").trim(),
             joinedAt: signup.joinedAt || new Date().toISOString(),
+            ownerToken: signup.ownerToken || "",
           }))
           .filter((signup) => signup.name)
       : [];
@@ -90,6 +91,10 @@ async function getSignups(key) {
 
 async function setSignups(key, signups) {
   await redis("SET", key, JSON.stringify(signups));
+}
+
+function publicSignups(signups) {
+  return signups.map(({ ownerToken, ...signup }) => signup);
 }
 
 function send(res, status, data) {
@@ -106,7 +111,7 @@ export default async function handler(req, res) {
   try {
     if (req.method === "GET") {
       const signups = await getSignups(key);
-      send(res, 200, { signups });
+      send(res, 200, { signups: publicSignups(signups) });
       return;
     }
 
@@ -120,7 +125,7 @@ export default async function handler(req, res) {
       const signups = await getSignups(key);
       const alreadySigned = signups.some((signup) => signup.name.toLowerCase() === name.toLowerCase());
       if (alreadySigned) {
-        send(res, 409, { error: "这个名字已经报名了", signups });
+        send(res, 409, { error: "这个名字已经报名了", signups: publicSignups(signups) });
         return;
       }
 
@@ -130,20 +135,37 @@ export default async function handler(req, res) {
           id: createId(),
           name,
           joinedAt: new Date().toISOString(),
+          ownerToken: String(body.ownerToken || ""),
         },
       ];
       await setSignups(key, nextSignups);
-      send(res, 201, { signups: nextSignups });
+      send(res, 201, { signups: publicSignups(nextSignups) });
       return;
     }
 
     if (req.method === "DELETE") {
       const signups = await getSignups(key);
-      const nextSignups = body.all
-        ? []
-        : signups.filter((signup) => signup.id !== body.id && signup.name !== body.name);
+      let nextSignups = [];
+
+      if (!body.all) {
+        const ownerToken = String(body.ownerToken || "");
+        const target = signups.find((signup) => signup.id === body.id || signup.name === body.name);
+
+        if (!target) {
+          send(res, 404, { error: "没有找到这条报名", signups: publicSignups(signups) });
+          return;
+        }
+
+        if (!target.ownerToken || target.ownerToken !== ownerToken) {
+          send(res, 403, { error: "只能取消自己的报名", signups: publicSignups(signups) });
+          return;
+        }
+
+        nextSignups = signups.filter((signup) => signup.id !== target.id);
+      }
+
       await setSignups(key, nextSignups);
-      send(res, 200, { signups: nextSignups });
+      send(res, 200, { signups: publicSignups(nextSignups) });
       return;
     }
 

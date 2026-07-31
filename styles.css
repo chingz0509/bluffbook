@@ -546,6 +546,14 @@ textarea:focus {
   font-weight: 800;
 }
 
+.signup-status {
+  min-width: 48px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: right;
+}
+
 .leaderboard-panel .leaderboard-list {
   gap: 0;
   margin-top: 16px;

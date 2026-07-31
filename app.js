@@ -1,4 +1,5 @@
 const storageKey = "texas-ledger-v1";
+const signupOwnerKey = "bluffbook-signup-owners-v1";
 const signupsApiPath = "/api/signups";
 let sharedSignupsEnabled = window.location.protocol !== "file:";
 
@@ -10,6 +11,7 @@ const defaultState = {
 };
 
 let state = loadState();
+let signupOwners = loadSignupOwners();
 
 const els = {
   fxCanvas: document.querySelector("#fxCanvas"),
@@ -281,9 +283,11 @@ async function refreshSharedSignups(options = {}) {
 }
 
 async function addSharedSignup(name) {
+  const ownerToken = createOwnerToken();
   try {
-    const payload = await signupRequest("POST", { name });
+    const payload = await signupRequest("POST", { name, ownerToken });
     state.signups = (payload.signups || []).map(normalizeSignup).filter((signup) => signup.name);
+    rememberSignupOwner(name, ownerToken);
     els.signupName.value = "";
     saveAndRender();
   } catch (error) {
@@ -293,8 +297,10 @@ async function addSharedSignup(name) {
 
 async function removeSharedSignup(signup) {
   try {
-    const payload = await signupRequest("DELETE", { id: signup.id, name: signup.name });
+    const ownerToken = getSignupOwnerToken(signup);
+    const payload = await signupRequest("DELETE", { id: signup.id, name: signup.name, ownerToken });
     state.signups = (payload.signups || []).map(normalizeSignup).filter((item) => item.name);
+    forgetSignupOwner(signup);
     saveAndRender();
   } catch (error) {
     showToast(error.message);
@@ -331,6 +337,46 @@ function normalizeSignup(signup) {
     name: String(signup.name || "").trim(),
     joinedAt: signup.joinedAt || new Date().toISOString(),
   };
+}
+
+function loadSignupOwners() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(signupOwnerKey));
+    return saved && typeof saved === "object" ? saved : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveSignupOwners() {
+  localStorage.setItem(signupOwnerKey, JSON.stringify(signupOwners));
+}
+
+function signupOwnerNameKey(name) {
+  return String(name || "").trim().toLowerCase();
+}
+
+function createOwnerToken() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return `owner-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function rememberSignupOwner(name, ownerToken) {
+  signupOwners[signupOwnerNameKey(name)] = ownerToken;
+  saveSignupOwners();
+}
+
+function getSignupOwnerToken(signup) {
+  return signupOwners[signupOwnerNameKey(signup?.name)];
+}
+
+function forgetSignupOwner(signup) {
+  delete signupOwners[signupOwnerNameKey(signup?.name)];
+  saveSignupOwners();
+}
+
+function canCancelSignup(signup) {
+  return !sharedSignupsEnabled || Boolean(getSignupOwnerToken(signup));
 }
 
 function createPlayer(name) {
@@ -499,16 +545,23 @@ function renderSignups() {
   els.signupList.innerHTML = state.signups.length
     ? state.signups
         .map(
-          (signup, index) => `
+          (signup, index) => {
+            const canCancel = canCancelSignup(signup);
+            return `
             <article class="signup-row" data-id="${signup.id}">
               <span class="rank-badge">${index + 1}</span>
               <div>
                 <strong>${escapeHtml(signup.name)}</strong>
-                <small>${formatSignupTime(new Date(signup.joinedAt))}</small>
+                <small>${canCancel ? "你已报名" : formatSignupTime(new Date(signup.joinedAt))}</small>
               </div>
-              <button type="button" data-cancel-signup>取消</button>
+              ${
+                canCancel
+                  ? `<button type="button" data-cancel-signup>取消</button>`
+                  : `<span class="signup-status">已报名</span>`
+              }
             </article>
-          `,
+          `;
+          },
         )
         .join("")
     : `<div class="empty">还没有人报名。输入名字后点“我要报名”。</div>`;

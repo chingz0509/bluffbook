@@ -63,6 +63,26 @@ button {
   margin-bottom: 18px;
 }
 
+.mode-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.mode-chip.is-keeper {
+  border-color: rgba(200, 161, 95, 0.4);
+  background: rgba(200, 161, 95, 0.1);
+  color: var(--accent-strong);
+}
+
 .section-label {
   margin: 0 0 4px;
   color: var(--accent);

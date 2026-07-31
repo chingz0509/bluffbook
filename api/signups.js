@@ -1,4 +1,5 @@
 const roomPrefix = "bluffbook:signups";
+const gameRoomPrefix = "bluffbook:game";
 
 function getRedisConfig() {
   const url =
@@ -19,6 +20,14 @@ function roomKey(room) {
     .replace(/[^a-z0-9-]/g, "")
     .slice(0, 40);
   return `${roomPrefix}:${safeRoom || "main"}`;
+}
+
+function gameRoomKey(room) {
+  const safeRoom = String(room || "main")
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "")
+    .slice(0, 40);
+  return `${gameRoomPrefix}:${safeRoom || "main"}`;
 }
 
 function createId() {
@@ -93,6 +102,17 @@ async function setSignups(key, signups) {
   await redis("SET", key, JSON.stringify(signups));
 }
 
+async function getKeeperToken(key) {
+  const saved = await redis("GET", key);
+  if (!saved) return "";
+
+  try {
+    return String(JSON.parse(saved).keeperToken || "");
+  } catch {
+    return "";
+  }
+}
+
 function publicSignups(signups) {
   return signups.map(({ ownerToken, ...signup }) => signup);
 }
@@ -106,7 +126,8 @@ function send(res, status, data) {
 
 export default async function handler(req, res) {
   const body = await readBody(req);
-  const key = roomKey(req.query?.room || body.room);
+  const room = req.query?.room || body.room;
+  const key = roomKey(room);
 
   try {
     if (req.method === "GET") {
@@ -147,7 +168,13 @@ export default async function handler(req, res) {
       const signups = await getSignups(key);
       let nextSignups = [];
 
-      if (!body.all) {
+      if (body.all) {
+        const keeperToken = await getKeeperToken(gameRoomKey(room));
+        if (!keeperToken || keeperToken !== String(body.keeperToken || "")) {
+          send(res, 403, { error: "只有记账员可以清空报名", signups: publicSignups(signups) });
+          return;
+        }
+      } else {
         const ownerToken = String(body.ownerToken || "");
         const target = signups.find((signup) => signup.id === body.id || signup.name === body.name);
 

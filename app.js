@@ -1,7 +1,12 @@
 const storageKey = "texas-ledger-v1";
 const signupOwnerKey = "bluffbook-signup-owners-v1";
+const keeperModeKey = "bluffbook-keeper-mode-v1";
+const keeperTokenKey = "bluffbook-keeper-token-v1";
 const signupsApiPath = "/api/signups";
+const gameApiPath = "/api/game";
 let sharedSignupsEnabled = window.location.protocol !== "file:";
+let sharedGameEnabled = window.location.protocol !== "file:";
+let keeperMode = resolveKeeperMode();
 
 const defaultState = {
   startedAt: new Date().toISOString(),
@@ -12,9 +17,11 @@ const defaultState = {
 
 let state = loadState();
 let signupOwners = loadSignupOwners();
+let gameWriteQueue = Promise.resolve();
 
 const els = {
   fxCanvas: document.querySelector("#fxCanvas"),
+  modeChip: document.querySelector("#modeChip"),
   addPlayerForm: document.querySelector("#addPlayerForm"),
   playerName: document.querySelector("#playerName"),
   signupForm: document.querySelector("#signupForm"),
@@ -49,22 +56,30 @@ document.querySelectorAll(".tab").forEach((tab) => {
 
 startBoardParticles();
 refreshSharedSignups();
+initializeSharedGame();
 window.setInterval(() => {
   refreshSharedSignups({ silent: true });
 }, 8000);
+window.setInterval(() => {
+  if (!keeperMode) refreshSharedGame({ silent: true });
+}, 4000);
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) refreshSharedSignups({ silent: true });
+  if (!document.hidden) {
+    refreshSharedSignups({ silent: true });
+    refreshSharedGame({ silent: true });
+  }
 });
 
 els.addPlayerForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  if (!keeperMode) return;
 
   const name = els.playerName.value.trim();
   if (!name) return;
 
   state.players.push(createPlayer(name));
   els.playerName.value = "";
-  saveAndRender();
+  saveAndRender({ syncGame: true });
 });
 
 els.goSettle.addEventListener("click", () => {
@@ -98,6 +113,10 @@ els.signupForm.addEventListener("submit", async (event) => {
 });
 
 els.startFromSignup.addEventListener("click", async () => {
+  if (!keeperMode) {
+    showToast("等待记账员开局");
+    return;
+  }
   if (sharedSignupsEnabled) {
     await refreshSharedSignups({ silent: true });
   }
@@ -112,19 +131,33 @@ els.startFromSignup.addEventListener("click", async () => {
     if (!confirmed) return;
   }
 
+  const previousPlayers = state.players;
+  const previousStartedAt = state.startedAt;
   state.players = state.signups.map((signup) => createPlayer(signup.name));
+  state.startedAt = new Date().toISOString();
+
+  try {
+    await saveSharedGame();
+  } catch (error) {
+    state.players = previousPlayers;
+    state.startedAt = previousStartedAt;
+    saveAndRender();
+    handleGameSyncError(error);
+    return;
+  }
+
   if (sharedSignupsEnabled) {
     await clearSharedSignups();
   } else {
     state.signups = [];
   }
-  state.startedAt = new Date().toISOString();
   saveAndRender();
   activateTab("table");
   showToast("已按报名名单开局");
 });
 
-els.completeGame.addEventListener("click", () => {
+els.completeGame.addEventListener("click", async () => {
+  if (!keeperMode) return;
   const { delta } = totals();
   if (state.players.length === 0) {
     showToast("还没有可结清的牌局");
@@ -138,13 +171,25 @@ els.completeGame.addEventListener("click", () => {
   const confirmed = window.confirm("确认账目结清并存入历史吗？");
   if (!confirmed) return;
 
+  const previousState = state;
+  const completedGame = createHistoryGame();
   state = {
     ...defaultState,
     startedAt: new Date().toISOString(),
     players: [],
     signups: state.signups,
-    history: [createHistoryGame(), ...state.history],
+    history: [completedGame, ...state.history],
   };
+
+  try {
+    await saveSharedGame();
+  } catch (error) {
+    state = previousState;
+    saveAndRender();
+    handleGameSyncError(error);
+    return;
+  }
+
   saveAndRender();
   activateTab("history");
   showToast("已结清并存入历史");
@@ -246,9 +291,127 @@ function loadState() {
   }
 }
 
-function saveAndRender() {
+function saveAndRender(options = {}) {
   localStorage.setItem(storageKey, JSON.stringify(state));
   render();
+  if (options.syncGame && keeperMode) {
+    saveSharedGame().catch(handleGameSyncError);
+  }
+}
+
+function resolveKeeperMode() {
+  const keeperParam = new URLSearchParams(window.location.search).get("keeper");
+  if (keeperParam === "1") localStorage.setItem(keeperModeKey, "1");
+  if (keeperParam === "0") localStorage.removeItem(keeperModeKey);
+  return window.location.protocol === "file:" || localStorage.getItem(keeperModeKey) === "1";
+}
+
+function getKeeperToken() {
+  let token = localStorage.getItem(keeperTokenKey);
+  if (!token && keeperMode) {
+    token = createOwnerToken();
+    localStorage.setItem(keeperTokenKey, token);
+  }
+  return token || "";
+}
+
+function sharedGamePayload() {
+  return {
+    startedAt: state.startedAt,
+    players: state.players.map((player) => ({
+      id: player.id,
+      name: player.name,
+      buyIn: number(player.buyIn),
+      buyInCount: number(player.buyInCount),
+      cashOut: number(player.cashOut),
+      isAway: Boolean(player.isAway),
+      leftAt: player.leftAt || null,
+    })),
+  };
+}
+
+async function gameRequest(method, data) {
+  const options = {
+    method,
+    headers: { "Content-Type": "application/json" },
+  };
+  if (data) options.body = JSON.stringify(data);
+
+  const response = await fetch(gameApiPath, options);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(payload.error || "本局同步暂时不可用");
+    error.status = response.status;
+    throw error;
+  }
+  return payload;
+}
+
+async function initializeSharedGame() {
+  if (!sharedGameEnabled) return;
+
+  try {
+    const payload = await gameRequest("GET");
+    const sharedGame = payload.game || {};
+    const hasSharedState = Boolean(sharedGame.updatedAt);
+    if (keeperMode) {
+      if (!hasSharedState && state.players.length > 0) {
+        await saveSharedGame();
+        return;
+      }
+      applySharedGame(sharedGame);
+      await saveSharedGame();
+      return;
+    }
+    applySharedGame(sharedGame);
+  } catch (error) {
+    if (error.status === 403) {
+      handleGameSyncError(error);
+      return;
+    }
+    sharedGameEnabled = false;
+    showToast(error.message);
+  }
+}
+
+async function refreshSharedGame(options = {}) {
+  if (!sharedGameEnabled) return;
+
+  try {
+    const payload = await gameRequest("GET");
+    applySharedGame(payload.game || {});
+  } catch (error) {
+    if (!options.silent) showToast(error.message);
+  }
+}
+
+function applySharedGame(game) {
+  state.startedAt = game.startedAt || new Date().toISOString();
+  state.players = (game.players || []).map(normalizePlayer).filter((player) => player.name);
+  saveAndRender();
+}
+
+async function saveSharedGame() {
+  if (!sharedGameEnabled || !keeperMode) return;
+  const requestData = {
+    keeperToken: getKeeperToken(),
+    game: sharedGamePayload(),
+  };
+  gameWriteQueue = gameWriteQueue.catch(() => {}).then(() => gameRequest("PUT", requestData));
+  return gameWriteQueue;
+}
+
+function handleGameSyncError(error) {
+  if (error.status === 403) {
+    keeperMode = false;
+    localStorage.removeItem(keeperModeKey);
+    showToast("本局已有其他记账员");
+    render();
+    refreshSharedGame({ silent: true });
+    return;
+  }
+  showToast("本局同步失败，请稍后重试");
+  refreshSharedGame({ silent: true });
 }
 
 async function signupRequest(method, data) {
@@ -309,7 +472,7 @@ async function removeSharedSignup(signup) {
 
 async function clearSharedSignups() {
   try {
-    const payload = await signupRequest("DELETE", { all: true });
+    const payload = await signupRequest("DELETE", { all: true, keeperToken: getKeeperToken() });
     state.signups = (payload.signups || []).map(normalizeSignup).filter((signup) => signup.name);
   } catch (error) {
     showToast(error.message);
@@ -404,6 +567,11 @@ function totals() {
 function render() {
   const { totalBuyIn } = totals();
 
+  document.body.classList.toggle("is-keeper", keeperMode);
+  els.modeChip.textContent = keeperMode ? "记账员模式" : "实时查看";
+  els.modeChip.classList.toggle("is-keeper", keeperMode);
+  els.addPlayerForm.hidden = !keeperMode;
+  els.completeGame.hidden = !keeperMode;
   els.tableFooter.hidden = state.players.length === 0;
   els.totalBuyIn.textContent = formatMoney(totalBuyIn);
 
@@ -415,7 +583,7 @@ function render() {
 
 function renderPlayers() {
   if (state.players.length === 0) {
-    els.playerList.innerHTML = `<div class="empty">还没有玩家。添加姓名后会自动记一手 200。</div>`;
+    els.playerList.innerHTML = `<div class="empty">${keeperMode ? "还没有玩家。添加姓名后会自动记一手 200。" : "还没有进行中的牌局。"}</div>`;
     return;
   }
 
@@ -430,7 +598,9 @@ function renderPlayers() {
             </div>
           `
         : "";
-      const actions = player.isAway
+      const actions = !keeperMode
+        ? ""
+        : player.isAway
         ? `
             <div class="away-actions">
               <button type="button" data-edit-away>修改剩余</button>
@@ -447,7 +617,7 @@ function renderPlayers() {
           `;
       return `
         <div class="swipe-row" data-id="${player.id}">
-          <button class="swipe-delete" type="button" data-remove>删除</button>
+          ${keeperMode ? `<button class="swipe-delete" type="button" data-remove>删除</button>` : ""}
           <article class="player-card swipe-card ${player.isAway ? "is-away" : ""}">
             <div class="player-head">
               <div>
@@ -466,6 +636,7 @@ function renderPlayers() {
     .join("");
 
   els.playerList.querySelectorAll(".swipe-row").forEach((row) => {
+    if (!keeperMode) return;
     const id = row.dataset.id;
     const card = row.querySelector(".swipe-card");
 
@@ -476,7 +647,7 @@ function renderPlayers() {
         const delta = number(button.dataset.add);
         player.buyIn = Math.max(0, number(player.buyIn) + delta);
         player.buyInCount = Math.max(0, number(player.buyInCount) + delta / 200);
-        saveAndRender();
+        saveAndRender({ syncGame: true });
       });
     });
 
@@ -489,7 +660,7 @@ function renderPlayers() {
         player.cashOut = cashOut;
         player.isAway = true;
         player.leftAt = new Date().toISOString();
-        saveAndRender();
+        saveAndRender({ syncGame: true });
         showToast(`${player.name} 已离桌`);
       });
     }
@@ -501,7 +672,7 @@ function renderPlayers() {
         const cashOut = askCashOut(player, "修改离桌剩余筹码");
         if (cashOut === null) return;
         player.cashOut = cashOut;
-        saveAndRender();
+        saveAndRender({ syncGame: true });
       });
     }
 
@@ -514,7 +685,7 @@ function renderPlayers() {
         player.isAway = false;
         player.leftAt = null;
         player.cashOut = 0;
-        saveAndRender();
+        saveAndRender({ syncGame: true });
       });
     }
 
@@ -523,7 +694,7 @@ function renderPlayers() {
       const confirmed = window.confirm(`删除 ${player.name}？`);
       if (!confirmed) return;
       state.players = state.players.filter((player) => player.id !== id);
-      saveAndRender();
+      saveAndRender({ syncGame: true });
     });
 
     attachSwipeDelete(row, card);
@@ -540,7 +711,8 @@ function renderSignups() {
     : `已报名 ${state.signups.length} 人，还差 ${missing} 人开局。`;
   els.signupCount.textContent = `${state.signups.length}/5`;
   els.signupCount.classList.toggle("is-ready", ready);
-  els.startFromSignup.disabled = !ready;
+  els.startFromSignup.hidden = !keeperMode;
+  els.startFromSignup.disabled = !ready || !keeperMode;
 
   els.signupList.innerHTML = state.signups.length
     ? state.signups
@@ -652,7 +824,7 @@ function renderSettlement() {
               </div>
               <label>
                 <span>${player.isAway ? "离桌剩余" : "剩余"}</span>
-                <input inputmode="decimal" data-field="cashOut" value="${player.cashOut}" ${player.isAway ? "disabled" : ""} />
+                <input inputmode="decimal" data-field="cashOut" value="${player.cashOut}" ${player.isAway || !keeperMode ? "disabled" : ""} />
               </label>
               <strong class="${profitClass(profit)}">${signedMoney(profit)}</strong>
             </div>
@@ -684,7 +856,7 @@ function renderSettlement() {
     input.addEventListener("change", (event) => {
       const player = state.players.find((item) => item.id === id);
       player.cashOut = event.target.value;
-      saveAndRender();
+      saveAndRender({ syncGame: true });
     });
   });
 }

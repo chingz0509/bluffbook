@@ -1,4 +1,6 @@
 const storageKey = "texas-ledger-v1";
+const signupsApiPath = "/api/signups";
+let sharedSignupsEnabled = window.location.protocol !== "file:";
 
 const defaultState = {
   startedAt: new Date().toISOString(),
@@ -44,6 +46,13 @@ document.querySelectorAll(".tab").forEach((tab) => {
 });
 
 startBoardParticles();
+refreshSharedSignups();
+window.setInterval(() => {
+  refreshSharedSignups({ silent: true });
+}, 8000);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) refreshSharedSignups({ silent: true });
+});
 
 els.addPlayerForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -60,11 +69,16 @@ els.goSettle.addEventListener("click", () => {
   activateTab("settle");
 });
 
-els.signupForm.addEventListener("submit", (event) => {
+els.signupForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const name = els.signupName.value.trim();
   if (!name) return;
+
+  if (sharedSignupsEnabled) {
+    await addSharedSignup(name);
+    return;
+  }
 
   const alreadySigned = state.signups.some((signup) => signup.name.toLowerCase() === name.toLowerCase());
   if (alreadySigned) {
@@ -81,7 +95,11 @@ els.signupForm.addEventListener("submit", (event) => {
   saveAndRender();
 });
 
-els.startFromSignup.addEventListener("click", () => {
+els.startFromSignup.addEventListener("click", async () => {
+  if (sharedSignupsEnabled) {
+    await refreshSharedSignups({ silent: true });
+  }
+
   if (state.signups.length < 5) {
     showToast("凑够 5 人再开局");
     return;
@@ -93,7 +111,11 @@ els.startFromSignup.addEventListener("click", () => {
   }
 
   state.players = state.signups.map((signup) => createPlayer(signup.name));
-  state.signups = [];
+  if (sharedSignupsEnabled) {
+    await clearSharedSignups();
+  } else {
+    state.signups = [];
+  }
   state.startedAt = new Date().toISOString();
   saveAndRender();
   activateTab("table");
@@ -225,6 +247,67 @@ function loadState() {
 function saveAndRender() {
   localStorage.setItem(storageKey, JSON.stringify(state));
   render();
+}
+
+async function signupRequest(method, data) {
+  const options = {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+    },
+  };
+  if (data) options.body = JSON.stringify(data);
+
+  const response = await fetch(signupsApiPath, options);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.error || "报名服务暂时不可用");
+  }
+  return payload;
+}
+
+async function refreshSharedSignups(options = {}) {
+  if (!sharedSignupsEnabled) return;
+
+  try {
+    const payload = await signupRequest("GET");
+    state.signups = (payload.signups || []).map(normalizeSignup).filter((signup) => signup.name);
+    saveAndRender();
+  } catch {
+    sharedSignupsEnabled = false;
+    if (!options.silent) showToast("暂时使用本机报名");
+    renderSignups();
+  }
+}
+
+async function addSharedSignup(name) {
+  try {
+    const payload = await signupRequest("POST", { name });
+    state.signups = (payload.signups || []).map(normalizeSignup).filter((signup) => signup.name);
+    els.signupName.value = "";
+    saveAndRender();
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function removeSharedSignup(signup) {
+  try {
+    const payload = await signupRequest("DELETE", { id: signup.id, name: signup.name });
+    state.signups = (payload.signups || []).map(normalizeSignup).filter((item) => item.name);
+    saveAndRender();
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function clearSharedSignups() {
+  try {
+    const payload = await signupRequest("DELETE", { all: true });
+    state.signups = (payload.signups || []).map(normalizeSignup).filter((signup) => signup.name);
+  } catch (error) {
+    showToast(error.message);
+  }
 }
 
 function normalizePlayer(player) {
@@ -436,6 +519,10 @@ function renderSignups() {
       const signup = state.signups.find((item) => item.id === row.dataset.id);
       const confirmed = window.confirm(`取消 ${signup.name} 的报名？`);
       if (!confirmed) return;
+      if (sharedSignupsEnabled) {
+        removeSharedSignup(signup);
+        return;
+      }
       state.signups = state.signups.filter((item) => item.id !== row.dataset.id);
       saveAndRender();
     });

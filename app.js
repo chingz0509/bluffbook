@@ -513,7 +513,10 @@ function applySharedGame(game) {
   state.startedAt = game.startedAt || new Date().toISOString();
   state.players = (game.players || []).map(normalizePlayer).filter((player) => player.name);
   if (Array.isArray(game.history)) {
-    state.history = game.history.map(normalizeHistoryGame).filter(Boolean);
+    const sharedHistory = game.history.map(normalizeHistoryGame).filter(Boolean);
+    if (sharedHistory.length > 0 || state.history.length === 0) {
+      state.history = sharedHistory;
+    }
   }
   saveAndRender();
 }

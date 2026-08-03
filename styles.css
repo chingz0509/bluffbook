@@ -66,8 +66,9 @@ button {
 .mode-chip {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.035);
@@ -75,6 +76,13 @@ button {
   font-size: 12px;
   font-weight: 800;
   white-space: nowrap;
+}
+
+.mode-chip:focus-visible,
+.keeper-dialog button:focus-visible,
+.keeper-dialog input:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 2px;
 }
 
 .mode-chip.is-keeper {
@@ -1037,6 +1045,73 @@ textarea:focus {
 .toast.show {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+
+.keeper-dialog {
+  width: min(calc(100% - 32px), 400px);
+  max-width: none;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-strong);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.keeper-dialog::backdrop {
+  background: rgba(3, 4, 4, 0.76);
+  backdrop-filter: blur(6px);
+}
+
+.keeper-login-form {
+  display: grid;
+  gap: 20px;
+  padding: 20px;
+}
+
+.keeper-dialog-head h2 {
+  margin-bottom: 8px;
+}
+
+.keeper-password-field {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.keeper-password-field input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--field);
+  color: var(--text);
+  font-size: 16px;
+}
+
+.keeper-password-field input::placeholder {
+  color: #6f6b64;
+}
+
+.keeper-login-error {
+  margin: -8px 0 0;
+  color: var(--red);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.keeper-dialog-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 10px;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.keeper-dialog-actions button {
+  min-height: 46px;
 }
 
 @media (max-width: 360px) {

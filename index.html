@@ -13,7 +13,7 @@
         <div>
           <h1>BluffBook</h1>
         </div>
-        <span class="mode-chip" id="modeChip">查看模式</span>
+        <button class="mode-chip" id="modeChip" type="button">实时查看</button>
       </header>
 
       <section class="panel poker-board" aria-label="公共牌发牌动画">
@@ -309,6 +309,34 @@
       </section>
 
     </main>
+
+    <dialog class="keeper-dialog" id="keeperDialog" aria-labelledby="keeperDialogTitle">
+      <form class="keeper-login-form" id="keeperLoginForm">
+        <div class="keeper-dialog-head">
+          <p class="section-label">记账权限</p>
+          <h2 id="keeperDialogTitle">进入记账员模式</h2>
+          <p class="muted">验证后才能开局、记录筹码和完成结账。</p>
+        </div>
+
+        <label class="keeper-password-field">
+          <span>记账员口令</span>
+          <input
+            id="keeperPassword"
+            type="password"
+            autocomplete="current-password"
+            enterkeyhint="go"
+            placeholder="请输入口令"
+            required
+          />
+        </label>
+        <p class="keeper-login-error" id="keeperLoginError" role="alert" hidden></p>
+
+        <div class="keeper-dialog-actions">
+          <button class="secondary-button" id="keeperCancel" type="button">取消</button>
+          <button class="primary-button" id="keeperLoginSubmit" type="submit">进入记账模式</button>
+        </div>
+      </form>
+    </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 

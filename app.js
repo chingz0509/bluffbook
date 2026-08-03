@@ -22,6 +22,12 @@ let gameWriteQueue = Promise.resolve();
 const els = {
   fxCanvas: document.querySelector("#fxCanvas"),
   modeChip: document.querySelector("#modeChip"),
+  keeperDialog: document.querySelector("#keeperDialog"),
+  keeperLoginForm: document.querySelector("#keeperLoginForm"),
+  keeperPassword: document.querySelector("#keeperPassword"),
+  keeperLoginError: document.querySelector("#keeperLoginError"),
+  keeperLoginSubmit: document.querySelector("#keeperLoginSubmit"),
+  keeperCancel: document.querySelector("#keeperCancel"),
   addPlayerForm: document.querySelector("#addPlayerForm"),
   playerName: document.querySelector("#playerName"),
   signupForm: document.querySelector("#signupForm"),
@@ -52,6 +58,42 @@ document.querySelectorAll(".tab").forEach((tab) => {
   tab.addEventListener("click", () => {
     activateTab(tab.dataset.tab);
   });
+});
+
+els.modeChip.addEventListener("click", () => {
+  if (!keeperMode) {
+    els.keeperDialog.showModal();
+    window.requestAnimationFrame(() => els.keeperPassword.focus());
+    return;
+  }
+
+  const confirmed = window.confirm("退出记账员模式，恢复为实时查看？");
+  if (confirmed) logoutKeeper();
+});
+
+els.keeperCancel.addEventListener("click", () => {
+  els.keeperDialog.close();
+});
+
+els.keeperDialog.addEventListener("close", resetKeeperLoginForm);
+
+els.keeperLoginForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const password = els.keeperPassword.value;
+  if (!password) return;
+
+  setKeeperLoginPending(true);
+  showKeeperLoginError("");
+  try {
+    await loginKeeper(password);
+    els.keeperDialog.close();
+    showToast("已进入记账员模式");
+  } catch (error) {
+    showKeeperLoginError(error.message);
+    els.keeperPassword.select();
+  } finally {
+    setKeeperLoginPending(false);
+  }
 });
 
 startBoardParticles();
@@ -300,19 +342,53 @@ function saveAndRender(options = {}) {
 }
 
 function resolveKeeperMode() {
-  const keeperParam = new URLSearchParams(window.location.search).get("keeper");
-  if (keeperParam === "1") localStorage.setItem(keeperModeKey, "1");
-  if (keeperParam === "0") localStorage.removeItem(keeperModeKey);
-  return window.location.protocol === "file:" || localStorage.getItem(keeperModeKey) === "1";
+  if (window.location.protocol === "file:") return true;
+  return Boolean(localStorage.getItem(keeperModeKey) === "1" && localStorage.getItem(keeperTokenKey));
 }
 
 function getKeeperToken() {
-  let token = localStorage.getItem(keeperTokenKey);
-  if (!token && keeperMode) {
-    token = createOwnerToken();
-    localStorage.setItem(keeperTokenKey, token);
-  }
-  return token || "";
+  return localStorage.getItem(keeperTokenKey) || "";
+}
+
+async function loginKeeper(password) {
+  const keeperToken = createOwnerToken();
+  const payload = await gameRequest("POST", {
+    action: "login",
+    password,
+    keeperToken,
+  });
+  localStorage.setItem(keeperTokenKey, keeperToken);
+  localStorage.setItem(keeperModeKey, "1");
+  keeperMode = true;
+  sharedGameEnabled = true;
+  applySharedGame(payload.game || {});
+}
+
+function logoutKeeper() {
+  keeperMode = false;
+  localStorage.removeItem(keeperModeKey);
+  localStorage.removeItem(keeperTokenKey);
+  render();
+  refreshSharedGame({ silent: true });
+  showToast("已退出记账员模式");
+}
+
+function setKeeperLoginPending(pending) {
+  els.keeperPassword.disabled = pending;
+  els.keeperCancel.disabled = pending;
+  els.keeperLoginSubmit.disabled = pending;
+  els.keeperLoginSubmit.textContent = pending ? "验证中..." : "进入记账模式";
+}
+
+function showKeeperLoginError(message) {
+  els.keeperLoginError.textContent = message;
+  els.keeperLoginError.hidden = !message;
+}
+
+function resetKeeperLoginForm() {
+  els.keeperLoginForm.reset();
+  showKeeperLoginError("");
+  setKeeperLoginPending(false);
 }
 
 function sharedGamePayload() {
@@ -405,7 +481,8 @@ function handleGameSyncError(error) {
   if (error.status === 403) {
     keeperMode = false;
     localStorage.removeItem(keeperModeKey);
-    showToast("本局已有其他记账员");
+    localStorage.removeItem(keeperTokenKey);
+    showToast("记账权限已失效，请重新登录");
     render();
     refreshSharedGame({ silent: true });
     return;

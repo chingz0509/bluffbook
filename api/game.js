@@ -1,3 +1,5 @@
+import { createHash, timingSafeEqual } from "node:crypto";
+
 const gameRoomPrefix = "bluffbook:game";
 
 function getRedisConfig() {
@@ -121,6 +123,12 @@ function send(res, status, data) {
   res.end(JSON.stringify(data));
 }
 
+function safeEqual(value, expected) {
+  const valueHash = createHash("sha256").update(String(value || "")).digest();
+  const expectedHash = createHash("sha256").update(String(expected || "")).digest();
+  return timingSafeEqual(valueHash, expectedHash);
+}
+
 export default async function handler(req, res) {
   const body = await readBody(req);
   const key = roomKey(req.query?.room || body.room);
@@ -129,6 +137,20 @@ export default async function handler(req, res) {
     if (req.method === "GET") {
       const envelope = await getEnvelope(key);
       send(res, 200, { game: envelope.game });
+      return;
+    }
+
+    if (req.method === "POST" && body.action === "login") {
+      const configuredPassword = String(process.env.KEEPER_PASSWORD || "");
+      const keeperToken = String(body.keeperToken || "");
+      if (!configuredPassword || !keeperToken || !safeEqual(body.password, configuredPassword)) {
+        send(res, 403, { error: "记账员口令不正确" });
+        return;
+      }
+
+      const current = await getEnvelope(key);
+      await redis("SET", key, JSON.stringify({ keeperToken, game: current.game }));
+      send(res, 200, { game: current.game });
       return;
     }
 

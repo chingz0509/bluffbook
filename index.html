@@ -338,6 +338,35 @@
       </form>
     </dialog>
 
+    <dialog class="keeper-dialog" id="cashOutDialog" aria-labelledby="cashOutDialogTitle">
+      <form class="keeper-login-form" id="cashOutForm">
+        <div class="keeper-dialog-head">
+          <p class="section-label">单人结账</p>
+          <h2 id="cashOutDialogTitle">输入离桌剩余筹码</h2>
+          <p class="muted" id="cashOutPlayer"></p>
+        </div>
+
+        <label class="keeper-password-field">
+          <span>剩余筹码</span>
+          <input
+            id="cashOutInput"
+            type="number"
+            inputmode="decimal"
+            min="0"
+            step="1"
+            enterkeyhint="done"
+            required
+          />
+        </label>
+        <p class="keeper-login-error" id="cashOutError" role="alert" hidden></p>
+
+        <div class="keeper-dialog-actions">
+          <button class="secondary-button" id="cashOutCancel" type="button">取消</button>
+          <button class="primary-button" type="submit">确认离桌</button>
+        </div>
+      </form>
+    </dialog>
+
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <script src="./app.js"></script>

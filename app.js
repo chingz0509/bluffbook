@@ -18,6 +18,8 @@ const defaultState = {
 let state = loadState();
 let signupOwners = loadSignupOwners();
 let gameWriteQueue = Promise.resolve();
+let startingGame = false;
+let cashOutRequest = null;
 
 const els = {
   fxCanvas: document.querySelector("#fxCanvas"),
@@ -28,6 +30,13 @@ const els = {
   keeperLoginError: document.querySelector("#keeperLoginError"),
   keeperLoginSubmit: document.querySelector("#keeperLoginSubmit"),
   keeperCancel: document.querySelector("#keeperCancel"),
+  cashOutDialog: document.querySelector("#cashOutDialog"),
+  cashOutForm: document.querySelector("#cashOutForm"),
+  cashOutDialogTitle: document.querySelector("#cashOutDialogTitle"),
+  cashOutPlayer: document.querySelector("#cashOutPlayer"),
+  cashOutInput: document.querySelector("#cashOutInput"),
+  cashOutError: document.querySelector("#cashOutError"),
+  cashOutCancel: document.querySelector("#cashOutCancel"),
   addPlayerForm: document.querySelector("#addPlayerForm"),
   playerName: document.querySelector("#playerName"),
   signupForm: document.querySelector("#signupForm"),
@@ -76,6 +85,23 @@ els.keeperCancel.addEventListener("click", () => {
 });
 
 els.keeperDialog.addEventListener("close", resetKeeperLoginForm);
+
+els.cashOutCancel.addEventListener("click", () => resolveCashOut(null));
+
+els.cashOutDialog.addEventListener("close", () => {
+  if (cashOutRequest) resolveCashOut(null, { close: false });
+});
+
+els.cashOutForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const value = els.cashOutInput.value;
+  const amount = Number(value);
+  if (value === "" || !Number.isFinite(amount) || amount < 0) {
+    showCashOutError("请输入有效的筹码数");
+    return;
+  }
+  resolveCashOut(amount);
+});
 
 els.keeperLoginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -173,6 +199,9 @@ els.startFromSignup.addEventListener("click", async () => {
     if (!confirmed) return;
   }
 
+  startingGame = true;
+  renderSignups();
+
   const previousPlayers = state.players;
   const previousStartedAt = state.startedAt;
   state.players = state.signups.map((signup) => createPlayer(signup.name));
@@ -185,6 +214,8 @@ els.startFromSignup.addEventListener("click", async () => {
     state.startedAt = previousStartedAt;
     saveAndRender();
     handleGameSyncError(error);
+    startingGame = false;
+    renderSignups();
     return;
   }
 
@@ -193,6 +224,7 @@ els.startFromSignup.addEventListener("click", async () => {
   } else {
     state.signups = [];
   }
+  startingGame = false;
   saveAndRender();
   activateTab("table");
   showToast("已按报名名单开局");
@@ -403,6 +435,22 @@ function sharedGamePayload() {
       isAway: Boolean(player.isAway),
       leftAt: player.leftAt || null,
     })),
+    history: state.history.slice(0, 120).map((game) => ({
+      id: game.id,
+      startedAt: game.startedAt,
+      endedAt: game.endedAt,
+      totalBuyIn: number(game.totalBuyIn),
+      totalCashOut: number(game.totalCashOut),
+      delta: number(game.delta),
+      isBalanced: Boolean(game.isBalanced),
+      players: (game.players || []).map((player) => ({
+        name: player.name,
+        buyIn: number(player.buyIn),
+        cashOut: number(player.cashOut),
+        profit: number(player.profit),
+        isAway: Boolean(player.isAway),
+      })),
+    })),
   };
 }
 
@@ -464,6 +512,9 @@ async function refreshSharedGame(options = {}) {
 function applySharedGame(game) {
   state.startedAt = game.startedAt || new Date().toISOString();
   state.players = (game.players || []).map(normalizePlayer).filter((player) => player.name);
+  if (Array.isArray(game.history)) {
+    state.history = game.history.map(normalizeHistoryGame).filter(Boolean);
+  }
   saveAndRender();
 }
 
@@ -579,6 +630,28 @@ function normalizeSignup(signup) {
   };
 }
 
+function normalizeHistoryGame(game) {
+  if (!game || !game.endedAt || !Array.isArray(game.players)) return null;
+  return {
+    id: game.id || createId(),
+    startedAt: game.startedAt || game.endedAt,
+    endedAt: game.endedAt,
+    totalBuyIn: number(game.totalBuyIn),
+    totalCashOut: number(game.totalCashOut),
+    delta: number(game.delta),
+    isBalanced: Boolean(game.isBalanced),
+    players: game.players
+      .map((player) => ({
+        name: String(player?.name || "").trim(),
+        buyIn: number(player?.buyIn),
+        cashOut: number(player?.cashOut),
+        profit: number(player?.profit),
+        isAway: Boolean(player?.isAway),
+      }))
+      .filter((player) => player.name),
+  };
+}
+
 function loadSignupOwners() {
   try {
     const saved = JSON.parse(localStorage.getItem(signupOwnerKey));
@@ -645,7 +718,7 @@ function render() {
   const { totalBuyIn } = totals();
 
   document.body.classList.toggle("is-keeper", keeperMode);
-  els.modeChip.textContent = keeperMode ? "记账员模式" : "实时查看";
+  els.modeChip.textContent = keeperMode ? "记账员模式" : "进入记账";
   els.modeChip.classList.toggle("is-keeper", keeperMode);
   els.addPlayerForm.hidden = !keeperMode;
   els.completeGame.hidden = !keeperMode;
@@ -730,9 +803,9 @@ function renderPlayers() {
 
     const leaveButton = row.querySelector("[data-leave]");
     if (leaveButton) {
-      leaveButton.addEventListener("click", () => {
+      leaveButton.addEventListener("click", async () => {
         const player = state.players.find((item) => item.id === id);
-        const cashOut = askCashOut(player, "输入离桌时剩余筹码");
+        const cashOut = await askCashOut(player, "输入离桌时剩余筹码");
         if (cashOut === null) return;
         player.cashOut = cashOut;
         player.isAway = true;
@@ -744,9 +817,9 @@ function renderPlayers() {
 
     const editAwayButton = row.querySelector("[data-edit-away]");
     if (editAwayButton) {
-      editAwayButton.addEventListener("click", () => {
+      editAwayButton.addEventListener("click", async () => {
         const player = state.players.find((item) => item.id === id);
-        const cashOut = askCashOut(player, "修改离桌剩余筹码");
+        const cashOut = await askCashOut(player, "修改离桌剩余筹码");
         if (cashOut === null) return;
         player.cashOut = cashOut;
         saveAndRender({ syncGame: true });
@@ -789,7 +862,8 @@ function renderSignups() {
   els.signupCount.textContent = `${state.signups.length}/5`;
   els.signupCount.classList.toggle("is-ready", ready);
   els.startFromSignup.hidden = !keeperMode;
-  els.startFromSignup.disabled = !ready || !keeperMode;
+  els.startFromSignup.disabled = !ready || !keeperMode || startingGame;
+  els.startFromSignup.textContent = startingGame ? "开局中..." : "开局";
 
   els.signupList.innerHTML = state.signups.length
     ? state.signups
@@ -1113,15 +1187,33 @@ function profitClass(value) {
 
 function askCashOut(player, title) {
   const defaultValue = player.cashOut ? player.cashOut : player.buyIn;
-  const value = window.prompt(`${title}：${player.name}`, defaultValue);
-  if (value === null) return null;
+  if (cashOutRequest) resolveCashOut(null);
 
-  const amount = number(value);
-  if (!Number.isFinite(Number(value)) || amount < 0) {
-    showToast("请输入有效的筹码数");
-    return null;
-  }
-  return amount;
+  els.cashOutDialogTitle.textContent = title;
+  els.cashOutPlayer.textContent = `${player.name} · 买入 ${formatMoney(player.buyIn)}`;
+  els.cashOutInput.value = defaultValue;
+  showCashOutError("");
+  els.cashOutDialog.showModal();
+  window.requestAnimationFrame(() => {
+    els.cashOutInput.focus();
+    els.cashOutInput.select();
+  });
+
+  return new Promise((resolve) => {
+    cashOutRequest = resolve;
+  });
+}
+
+function resolveCashOut(value, options = {}) {
+  const resolve = cashOutRequest;
+  cashOutRequest = null;
+  if (options.close !== false && els.cashOutDialog.open) els.cashOutDialog.close();
+  if (resolve) resolve(value);
+}
+
+function showCashOutError(message) {
+  els.cashOutError.textContent = message;
+  els.cashOutError.hidden = !message;
 }
 
 function escapeHtml(value) {

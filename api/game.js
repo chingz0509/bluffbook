@@ -77,6 +77,34 @@ function normalizePlayer(player, index) {
   };
 }
 
+function normalizeHistoryPlayer(player) {
+  const name = String(player?.name || "").trim().slice(0, 40);
+  if (!name) return null;
+  return {
+    name,
+    buyIn: finiteNumber(player.buyIn),
+    cashOut: finiteNumber(player.cashOut),
+    profit: Number.isFinite(Number(player.profit)) ? Number(player.profit) : 0,
+    isAway: Boolean(player.isAway),
+  };
+}
+
+function normalizeHistoryGame(game, index) {
+  if (!game?.endedAt || !Array.isArray(game.players)) return null;
+  const totalBuyIn = finiteNumber(game.totalBuyIn);
+  const totalCashOut = finiteNumber(game.totalCashOut);
+  return {
+    id: String(game.id || `game-${index}`).slice(0, 100),
+    startedAt: String(game.startedAt || game.endedAt),
+    endedAt: String(game.endedAt),
+    totalBuyIn,
+    totalCashOut,
+    delta: totalCashOut - totalBuyIn,
+    isBalanced: totalCashOut === totalBuyIn,
+    players: game.players.slice(0, 40).map(normalizeHistoryPlayer).filter(Boolean),
+  };
+}
+
 function emptyGame() {
   return {
     startedAt: null,
@@ -93,6 +121,9 @@ function normalizeGame(game) {
   return {
     startedAt: game?.startedAt ? String(game.startedAt) : null,
     players,
+    history: Array.isArray(game?.history)
+      ? game.history.slice(0, 120).map(normalizeHistoryGame).filter(Boolean)
+      : [],
     updatedAt: new Date().toISOString(),
   };
 }

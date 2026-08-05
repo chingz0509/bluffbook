@@ -32,14 +32,13 @@
       </section>
 
       <nav class="tabs" aria-label="功能切换">
-        <button class="tab active" data-tab="signup" type="button">报名</button>
-        <button class="tab" data-tab="table" type="button">本局</button>
+        <button class="tab active" data-tab="table" type="button">本局</button>
         <button class="tab" data-tab="settle" type="button">结账</button>
         <button class="tab" data-tab="history" type="button">历史</button>
         <button class="tab" data-tab="rules" type="button">牌力</button>
       </nav>
 
-      <section class="tab-view" id="tableView">
+      <section class="tab-view active" id="tableView">
         <form class="add-player" id="addPlayerForm">
           <input id="playerName" autocomplete="off" placeholder="玩家姓名" />
           <button class="primary-button" type="submit">添加</button>
@@ -53,33 +52,6 @@
             <strong id="totalBuyIn">0</strong>
           </div>
           <button class="primary-button" id="goSettle" type="button">去结账</button>
-        </section>
-      </section>
-
-      <section class="tab-view active" id="signupView">
-        <section class="panel signup-hero">
-          <div>
-            <p class="section-label">今晚约局</p>
-            <h2 id="signupTitle">等待报名</h2>
-            <p class="muted" id="signupCopy">凑够 5 人即可开局。</p>
-          </div>
-          <strong id="signupCount">0/5</strong>
-        </section>
-
-        <form class="add-player" id="signupForm">
-          <input id="signupName" autocomplete="name" placeholder="输入你的名字" />
-          <button class="primary-button" type="submit">我要报名</button>
-        </form>
-
-        <section class="panel signup-panel">
-          <div class="panel-heading">
-            <div>
-              <p class="section-label">报名列表</p>
-              <h2>已报名</h2>
-            </div>
-            <button class="secondary-button" id="startFromSignup" type="button" disabled>开局</button>
-          </div>
-          <div class="signup-list" id="signupList"></div>
         </section>
       </section>
 

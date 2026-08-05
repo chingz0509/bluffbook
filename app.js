@@ -520,6 +520,7 @@ function render() {
   els.modeChip.textContent = keeperMode ? "记账员模式" : "进入记账";
   els.modeChip.classList.toggle("is-keeper", keeperMode);
   els.addPlayerForm.hidden = !keeperMode;
+  els.goSettle.hidden = !keeperMode;
   els.completeGame.hidden = !keeperMode;
   els.tableFooter.hidden = state.players.length === 0;
   els.totalBuyIn.textContent = formatMoney(totalBuyIn);

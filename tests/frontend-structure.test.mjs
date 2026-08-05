@@ -29,3 +29,9 @@ test("signup styles and endpoint are absent", async () => {
   assert.doesNotMatch(styles, /\.signup(?:-|\b)/);
   await assert.rejects(access(new URL("api/signups.js", root)));
 });
+
+test("the settlement shortcut is keeper-only", async () => {
+  const script = await readFile(new URL("app.js", root), "utf8");
+
+  assert.match(script, /els\.goSettle\.hidden = !keeperMode;/);
+});

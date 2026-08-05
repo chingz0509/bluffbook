@@ -181,14 +181,14 @@ Delete `.signup-hero`, `.signup-panel`, `.signup-row`, and `.signup-status` rule
 .settlement-list,
 ```
 
-Change `.tabs` from five equal columns to four equal columns. Keep `.card-stage` at five columns for the five community cards.
-
 to:
 
 ```css
 .player-list,
 .settlement-list,
 ```
+
+Change `.tabs` from five equal columns to four equal columns. Keep `.card-stage` at five columns for the five community cards.
 
 - [ ] **Step 4: Delete the endpoint and its obsolete test**
 
@@ -257,4 +257,63 @@ Start a local server with `python3 -m http.server 4173`, open `http://127.0.0.1:
 ```bash
 git add README.md
 git commit -m "Update documentation after signup removal"
+```
+
+### Task 5: Hide The Settlement Shortcut From Visitors
+
+**Files:**
+- Modify: `tests/frontend-structure.test.mjs`
+- Modify: `app.js:519-524`
+
+- [ ] **Step 1: Write the failing visitor-control test**
+
+Add this test to `tests/frontend-structure.test.mjs`:
+
+```js
+test("the settlement shortcut is keeper-only", async () => {
+  const script = await readFile(new URL("app.js", root), "utf8");
+
+  assert.match(script, /els\.goSettle\.hidden = !keeperMode;/);
+});
+```
+
+- [ ] **Step 2: Run the test and verify the visitor control is missing**
+
+Run: `node --test tests/frontend-structure.test.mjs`
+
+Expected: three PASS and one FAIL because `render()` does not yet hide `goSettle` for visitors.
+
+- [ ] **Step 3: Make the shortcut keeper-only**
+
+In `render()`, add the visibility rule beside the existing keeper-only controls:
+
+```js
+els.addPlayerForm.hidden = !keeperMode;
+els.goSettle.hidden = !keeperMode;
+els.completeGame.hidden = !keeperMode;
+```
+
+Keep the table footer visible whenever a game has players so visitors can still see the total buy-in.
+
+- [ ] **Step 4: Run syntax and complete tests**
+
+Run:
+
+```bash
+node --check app.js
+node --test tests/*.test.mjs
+git diff --check
+```
+
+Expected: all commands exit 0 and all tests PASS.
+
+- [ ] **Step 5: Verify both browser modes**
+
+At `http://127.0.0.1:4173`, confirm visitor mode shows total buy-in but no `去结账` button. Open `index.html` through the `file:` protocol, which uses keeper mode locally, and confirm `去结账` remains visible. In both modes, confirm the `结账` tab is available.
+
+- [ ] **Step 6: Commit the visitor-control change**
+
+```bash
+git add app.js tests/frontend-structure.test.mjs docs/superpowers/plans/2026-08-05-remove-signup.md
+git commit -m "Hide settlement shortcut from visitors"
 ```

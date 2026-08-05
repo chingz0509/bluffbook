@@ -16,6 +16,10 @@ Remove the signup feature completely. BluffBook should open on the active-game v
 
 The default tab is `本局`. A keeper enters keeper mode, adds each player by name, and then records buy-ins, cash-outs, settlement, and history through the existing game flow. Read-only visitors can continue to view shared game state.
 
+## Visitor Controls
+
+Read-only visitors see the current total buy-in but do not see the `去结账` shortcut in the table footer. The shortcut remains available in keeper mode. Visitors can still use the `结账` tab to inspect settlement records, and the existing keeper-login control remains available.
+
 ## Data And Compatibility
 
 Existing signup data in Redis will not be deleted. Once the endpoint and client integration are removed, the old keys are unreachable and harmless. No migration or compatibility endpoint is needed for this personal application.
@@ -32,4 +36,4 @@ Removing signup polling also removes its fallback and error messages. Existing s
 - Check `app.js` syntax.
 - Search the repository for stale signup and Chinese signup-copy references.
 - Open the application and confirm `本局` is the initial active view and the remaining tabs work.
-
+- Confirm `去结账` is hidden for visitors and visible for keepers.

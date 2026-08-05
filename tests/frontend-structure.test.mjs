@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 
 const root = new URL("../", import.meta.url);
 
@@ -19,4 +19,12 @@ test("the client has no signup state or network integration", async () => {
   assert.doesNotMatch(script, /\/api\/signups/);
   assert.doesNotMatch(script, /signup/i);
   assert.doesNotMatch(script, /报名/);
+});
+
+test("signup styles and endpoint are absent", async () => {
+  const styles = await readFile(new URL("styles.css", root), "utf8");
+
+  assert.match(styles, /grid-template-columns: repeat\(4, 1fr\)/);
+  assert.doesNotMatch(styles, /\.signup(?:-|\b)/);
+  await assert.rejects(access(new URL("api/signups.js", root)));
 });

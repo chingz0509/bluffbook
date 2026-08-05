@@ -158,6 +158,8 @@ import { access, readFile } from "node:fs/promises";
 test("signup styles and endpoint are absent", async () => {
   const styles = await readFile(new URL("styles.css", root), "utf8");
 
+  assert.match(styles, /\.tabs\s*\{[^}]*grid-template-columns: repeat\(4, 1fr\)/s);
+  assert.match(styles, /\.card-stage\s*\{[^}]*grid-template-columns: repeat\(5, 1fr\)/s);
   assert.doesNotMatch(styles, /\.signup(?:-|\b)/);
   await assert.rejects(access(new URL("api/signups.js", root)));
 });
@@ -178,6 +180,8 @@ Delete `.signup-hero`, `.signup-panel`, `.signup-row`, and `.signup-status` rule
 .signup-list,
 .settlement-list,
 ```
+
+Change `.tabs` from five equal columns to four equal columns. Keep `.card-stage` at five columns for the five community cards.
 
 to:
 
@@ -227,7 +231,7 @@ Describe only `本局 / 结账` and `历史 / 月度排行` storage. Remove sign
 Run:
 
 ```bash
-rg -n -i 'signup|signups|报名|我要报名' --glob '!docs/superpowers/**' .
+rg -n -i 'signup|signups|报名|我要报名' --glob '!docs/superpowers/**' --glob '!tests/frontend-structure.test.mjs' .
 ```
 
 Expected: no matches.
@@ -254,4 +258,3 @@ Start a local server with `python3 -m http.server 4173`, open `http://127.0.0.1:
 git add README.md
 git commit -m "Update documentation after signup removal"
 ```
-

@@ -24,7 +24,8 @@ test("the client has no signup state or network integration", async () => {
 test("signup styles and endpoint are absent", async () => {
   const styles = await readFile(new URL("styles.css", root), "utf8");
 
-  assert.match(styles, /grid-template-columns: repeat\(4, 1fr\)/);
+  assert.match(styles, /\.tabs\s*\{[^}]*grid-template-columns: repeat\(4, 1fr\)/s);
+  assert.match(styles, /\.card-stage\s*\{[^}]*grid-template-columns: repeat\(5, 1fr\)/s);
   assert.doesNotMatch(styles, /\.signup(?:-|\b)/);
   await assert.rejects(access(new URL("api/signups.js", root)));
 });

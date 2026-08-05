@@ -1,24 +1,18 @@
 const storageKey = "texas-ledger-v1";
-const signupOwnerKey = "bluffbook-signup-owners-v1";
 const keeperModeKey = "bluffbook-keeper-mode-v1";
 const keeperTokenKey = "bluffbook-keeper-token-v1";
-const signupsApiPath = "/api/signups";
 const gameApiPath = "/api/game";
-let sharedSignupsEnabled = window.location.protocol !== "file:";
 let sharedGameEnabled = window.location.protocol !== "file:";
 let keeperMode = resolveKeeperMode();
 
 const defaultState = {
   startedAt: new Date().toISOString(),
   players: [],
-  signups: [],
   history: [],
 };
 
 let state = loadState();
-let signupOwners = loadSignupOwners();
 let gameWriteQueue = Promise.resolve();
-let startingGame = false;
 let cashOutRequest = null;
 
 const els = {
@@ -39,13 +33,6 @@ const els = {
   cashOutCancel: document.querySelector("#cashOutCancel"),
   addPlayerForm: document.querySelector("#addPlayerForm"),
   playerName: document.querySelector("#playerName"),
-  signupForm: document.querySelector("#signupForm"),
-  signupName: document.querySelector("#signupName"),
-  signupTitle: document.querySelector("#signupTitle"),
-  signupCopy: document.querySelector("#signupCopy"),
-  signupCount: document.querySelector("#signupCount"),
-  signupList: document.querySelector("#signupList"),
-  startFromSignup: document.querySelector("#startFromSignup"),
   tableFooter: document.querySelector("#tableFooter"),
   totalBuyIn: document.querySelector("#totalBuyIn"),
   goSettle: document.querySelector("#goSettle"),
@@ -123,17 +110,12 @@ els.keeperLoginForm.addEventListener("submit", async (event) => {
 });
 
 startBoardParticles();
-refreshSharedSignups();
 initializeSharedGame();
-window.setInterval(() => {
-  refreshSharedSignups({ silent: true });
-}, 8000);
 window.setInterval(() => {
   if (!keeperMode) refreshSharedGame({ silent: true });
 }, 4000);
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) {
-    refreshSharedSignups({ silent: true });
     refreshSharedGame({ silent: true });
   }
 });
@@ -152,82 +134,6 @@ els.addPlayerForm.addEventListener("submit", (event) => {
 
 els.goSettle.addEventListener("click", () => {
   activateTab("settle");
-});
-
-els.signupForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-
-  const name = els.signupName.value.trim();
-  if (!name) return;
-
-  if (sharedSignupsEnabled) {
-    await addSharedSignup(name);
-    return;
-  }
-
-  const alreadySigned = state.signups.some((signup) => signup.name.toLowerCase() === name.toLowerCase());
-  if (alreadySigned) {
-    showToast("这个名字已经报名了");
-    return;
-  }
-
-  state.signups.push({
-    id: createId(),
-    name,
-    joinedAt: new Date().toISOString(),
-  });
-  els.signupName.value = "";
-  saveAndRender();
-});
-
-els.startFromSignup.addEventListener("click", async () => {
-  if (!keeperMode) {
-    showToast("等待记账员开局");
-    return;
-  }
-  if (sharedSignupsEnabled) {
-    await refreshSharedSignups({ silent: true });
-  }
-
-  if (state.signups.length < 5) {
-    showToast("凑够 5 人再开局");
-    return;
-  }
-
-  if (state.players.length > 0) {
-    const confirmed = window.confirm("本局已有玩家，开局会替换为当前报名名单。继续吗？");
-    if (!confirmed) return;
-  }
-
-  startingGame = true;
-  renderSignups();
-
-  const previousPlayers = state.players;
-  const previousStartedAt = state.startedAt;
-  state.players = state.signups.map((signup) => createPlayer(signup.name));
-  state.startedAt = new Date().toISOString();
-
-  try {
-    await saveSharedGame();
-  } catch (error) {
-    state.players = previousPlayers;
-    state.startedAt = previousStartedAt;
-    saveAndRender();
-    handleGameSyncError(error);
-    startingGame = false;
-    renderSignups();
-    return;
-  }
-
-  if (sharedSignupsEnabled) {
-    await clearSharedSignups();
-  } else {
-    state.signups = [];
-  }
-  startingGame = false;
-  saveAndRender();
-  activateTab("table");
-  showToast("已按报名名单开局");
 });
 
 els.completeGame.addEventListener("click", async () => {
@@ -251,7 +157,6 @@ els.completeGame.addEventListener("click", async () => {
     ...defaultState,
     startedAt: new Date().toISOString(),
     players: [],
-    signups: state.signups,
     history: [completedGame, ...state.history],
   };
 
@@ -357,7 +262,6 @@ function loadState() {
     return {
       startedAt: saved.startedAt || new Date().toISOString(),
       players: (saved.players || []).map(normalizePlayer),
-      signups: (saved.signups || []).map(normalizeSignup).filter((signup) => signup.name),
       history: Array.isArray(saved.history) ? saved.history : [],
     };
   } catch {
@@ -545,71 +449,6 @@ function handleGameSyncError(error) {
   refreshSharedGame({ silent: true });
 }
 
-async function signupRequest(method, data) {
-  const options = {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-    },
-  };
-  if (data) options.body = JSON.stringify(data);
-
-  const response = await fetch(signupsApiPath, options);
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(payload.error || "报名服务暂时不可用");
-  }
-  return payload;
-}
-
-async function refreshSharedSignups(options = {}) {
-  if (!sharedSignupsEnabled) return;
-
-  try {
-    const payload = await signupRequest("GET");
-    state.signups = (payload.signups || []).map(normalizeSignup).filter((signup) => signup.name);
-    saveAndRender();
-  } catch {
-    sharedSignupsEnabled = false;
-    if (!options.silent) showToast("暂时使用本机报名");
-    renderSignups();
-  }
-}
-
-async function addSharedSignup(name) {
-  const ownerToken = createOwnerToken();
-  try {
-    const payload = await signupRequest("POST", { name, ownerToken });
-    state.signups = (payload.signups || []).map(normalizeSignup).filter((signup) => signup.name);
-    rememberSignupOwner(name, ownerToken);
-    els.signupName.value = "";
-    saveAndRender();
-  } catch (error) {
-    showToast(error.message);
-  }
-}
-
-async function removeSharedSignup(signup) {
-  try {
-    const ownerToken = getSignupOwnerToken(signup);
-    const payload = await signupRequest("DELETE", { id: signup.id, name: signup.name, ownerToken });
-    state.signups = (payload.signups || []).map(normalizeSignup).filter((item) => item.name);
-    forgetSignupOwner(signup);
-    saveAndRender();
-  } catch (error) {
-    showToast(error.message);
-  }
-}
-
-async function clearSharedSignups() {
-  try {
-    const payload = await signupRequest("DELETE", { all: true, keeperToken: getKeeperToken() });
-    state.signups = (payload.signups || []).map(normalizeSignup).filter((signup) => signup.name);
-  } catch (error) {
-    showToast(error.message);
-  }
-}
-
 function normalizePlayer(player) {
   const buyIn = number(player.buyIn);
   const isAway = Boolean(player.isAway);
@@ -622,14 +461,6 @@ function normalizePlayer(player) {
     cashOut: player.cashOut ?? 0,
     isAway,
     leftAt: isAway ? player.leftAt || new Date().toISOString() : null,
-  };
-}
-
-function normalizeSignup(signup) {
-  return {
-    id: signup.id || createId(),
-    name: String(signup.name || "").trim(),
-    joinedAt: signup.joinedAt || new Date().toISOString(),
   };
 }
 
@@ -655,44 +486,9 @@ function normalizeHistoryGame(game) {
   };
 }
 
-function loadSignupOwners() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(signupOwnerKey));
-    return saved && typeof saved === "object" ? saved : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveSignupOwners() {
-  localStorage.setItem(signupOwnerKey, JSON.stringify(signupOwners));
-}
-
-function signupOwnerNameKey(name) {
-  return String(name || "").trim().toLowerCase();
-}
-
 function createOwnerToken() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
   return `owner-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-function rememberSignupOwner(name, ownerToken) {
-  signupOwners[signupOwnerNameKey(name)] = ownerToken;
-  saveSignupOwners();
-}
-
-function getSignupOwnerToken(signup) {
-  return signupOwners[signupOwnerNameKey(signup?.name)];
-}
-
-function forgetSignupOwner(signup) {
-  delete signupOwners[signupOwnerNameKey(signup?.name)];
-  saveSignupOwners();
-}
-
-function canCancelSignup(signup) {
-  return !sharedSignupsEnabled || Boolean(getSignupOwnerToken(signup));
 }
 
 function createPlayer(name) {
@@ -729,7 +525,6 @@ function render() {
   els.totalBuyIn.textContent = formatMoney(totalBuyIn);
 
   renderPlayers();
-  renderSignups();
   renderSettlement();
   renderHistory();
 }
@@ -851,60 +646,6 @@ function renderPlayers() {
     });
 
     attachSwipeDelete(row, card);
-  });
-}
-
-function renderSignups() {
-  const ready = state.signups.length >= 5;
-  const missing = Math.max(0, 5 - state.signups.length);
-
-  els.signupTitle.textContent = ready ? "可以开局了" : "等待报名";
-  els.signupCopy.textContent = ready
-    ? `已报名 ${state.signups.length} 人，由记账员确认后开局。`
-    : `已报名 ${state.signups.length} 人，还差 ${missing} 人开局。`;
-  els.signupCount.textContent = `${state.signups.length}/5`;
-  els.signupCount.classList.toggle("is-ready", ready);
-  els.startFromSignup.hidden = !keeperMode;
-  els.startFromSignup.disabled = !ready || !keeperMode || startingGame;
-  els.startFromSignup.textContent = startingGame ? "开局中..." : "开局";
-
-  els.signupList.innerHTML = state.signups.length
-    ? state.signups
-        .map(
-          (signup, index) => {
-            const canCancel = canCancelSignup(signup);
-            return `
-            <article class="signup-row" data-id="${signup.id}">
-              <span class="rank-badge">${index + 1}</span>
-              <div>
-                <strong>${escapeHtml(signup.name)}</strong>
-                <small>${canCancel ? "你已报名" : formatSignupTime(new Date(signup.joinedAt))}</small>
-              </div>
-              ${
-                canCancel
-                  ? `<button type="button" data-cancel-signup>取消</button>`
-                  : `<span class="signup-status">已报名</span>`
-              }
-            </article>
-          `;
-          },
-        )
-        .join("")
-    : `<div class="empty">还没有人报名。输入名字后点“我要报名”。</div>`;
-
-  els.signupList.querySelectorAll("[data-cancel-signup]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const row = button.closest(".signup-row");
-      const signup = state.signups.find((item) => item.id === row.dataset.id);
-      const confirmed = window.confirm(`取消 ${signup.name} 的报名？`);
-      if (!confirmed) return;
-      if (sharedSignupsEnabled) {
-        removeSharedSignup(signup);
-        return;
-      }
-      state.signups = state.signups.filter((item) => item.id !== row.dataset.id);
-      saveAndRender();
-    });
   });
 }
 
@@ -1159,10 +900,6 @@ function formatMonth(date) {
 
 function formatGameDate(date) {
   return `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-}
-
-function formatSignupTime(date) {
-  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")} 报名`;
 }
 
 function number(value) {

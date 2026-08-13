@@ -35,3 +35,11 @@ test("the settlement shortcut is keeper-only", async () => {
 
   assert.match(script, /els\.goSettle\.hidden = !keeperMode;/);
 });
+
+test("history expansion survives shared refresh re-renders", async () => {
+  const script = await readFile(new URL("app.js", root), "utf8");
+
+  assert.match(script, /const openHistoryIds = new Set\(\);/);
+  assert.match(script, /openHistoryIds\.add\(row\.dataset\.historyId\)/);
+  assert.match(script, /openHistoryIds\.has\(game\.id\)/);
+});

@@ -14,6 +14,7 @@ const defaultState = {
 let state = loadState();
 let gameWriteQueue = Promise.resolve();
 let cashOutRequest = null;
+const openHistoryIds = new Set();
 
 const els = {
   fxCanvas: document.querySelector("#fxCanvas"),
@@ -813,6 +814,10 @@ function createHistoryGame() {
 }
 
 function renderHistory() {
+  els.historyList.querySelectorAll(".history-item.is-open").forEach((item) => {
+    const id = item.querySelector(".history-row")?.dataset.historyId;
+    if (id) openHistoryIds.add(id);
+  });
   const monthKey = monthKeyOf(new Date());
   const monthGames = state.history.filter((game) => monthKeyOf(new Date(game.endedAt)) === monthKey);
   const balancedGames = monthGames.filter((game) => game.isBalanced);
@@ -853,7 +858,7 @@ function renderHistory() {
         .slice(0, 12)
         .map((game) => {
           return `
-            <div class="history-item">
+            <div class="history-item${openHistoryIds.has(game.id) ? " is-open" : ""}">
               <button class="history-row" type="button" data-history-id="${game.id}">
                 <span class="rank-badge">${game.isBalanced ? "✓" : "!"}</span>
                 <span class="row-title">
@@ -862,7 +867,7 @@ function renderHistory() {
                 </span>
                 <strong class="${game.isBalanced ? "positive" : "negative"}">${game.isBalanced ? "平账" : "未平账"}</strong>
               </button>
-              <div class="history-detail" hidden>
+              <div class="history-detail"${openHistoryIds.has(game.id) ? "" : " hidden"}>
                 ${game.players
                   .map(
                     (player) => `
@@ -886,6 +891,8 @@ function renderHistory() {
       const item = row.closest(".history-item");
       const detail = item.querySelector(".history-detail");
       const isOpen = item.classList.toggle("is-open");
+      if (isOpen) openHistoryIds.add(row.dataset.historyId);
+      else openHistoryIds.delete(row.dataset.historyId);
       detail.hidden = !isOpen;
     });
   });

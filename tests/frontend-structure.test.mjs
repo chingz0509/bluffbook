@@ -44,12 +44,24 @@ test("history expansion survives shared refresh re-renders", async () => {
   assert.match(script, /openHistoryIds\.has\(game\.id\)/);
 });
 
+test("the leaderboard switches between the current month and year", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+  const script = await readFile(new URL("app.js", root), "utf8");
+
+  assert.match(html, /role="group" aria-label="排行榜时间范围"/);
+  assert.match(html, /data-leaderboard-range="month"[^>]*aria-pressed="true"[^>]*>本月<\/button>/);
+  assert.match(html, /data-leaderboard-range="year"[^>]*aria-pressed="false"[^>]*>本年<\/button>/);
+  assert.match(html, /<script src="\.\/leaderboard\.js"><\/script>\s*<script src="\.\/app\.js"><\/script>/);
+  assert.match(script, /let leaderboardRange = "month";/);
+  assert.match(script, /leaderboardRange = button\.dataset\.leaderboardRange;\s*renderLeaderboard\(\);/);
+});
+
 test("the keeper footer includes an accessible quick-action lock", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
 
   assert.match(
     html,
-    /<script src="\.\/quick-action-lock\.js"><\/script>\s*<script src="\.\/history-order\.js"><\/script>\s*<script src="\.\/app\.js"><\/script>/,
+    /<script src="\.\/quick-action-lock\.js"><\/script>\s*<script src="\.\/history-order\.js"><\/script>\s*<script src="\.\/leaderboard\.js"><\/script>\s*<script src="\.\/app\.js"><\/script>/,
   );
   assert.match(html, /id="quickActionLock"[^>]*aria-label="快捷记账锁"/);
   assert.match(html, /class="quick-lock-icon"[^>]*aria-hidden="true"/);

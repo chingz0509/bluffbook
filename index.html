@@ -98,8 +98,16 @@
 
       <section class="tab-view" id="historyView">
         <section class="panel leaderboard-panel">
-          <p class="section-label">月度排行</p>
-          <h2 id="historyMonthTitle">本月盈利榜</h2>
+          <div class="leaderboard-heading">
+            <div>
+              <p class="section-label">盈利排行</p>
+              <h2 id="historyMonthTitle">本月盈利榜</h2>
+            </div>
+            <div class="leaderboard-range" role="group" aria-label="排行榜时间范围">
+              <button class="active" type="button" data-leaderboard-range="month" aria-pressed="true">本月</button>
+              <button type="button" data-leaderboard-range="year" aria-pressed="false">本年</button>
+            </div>
+          </div>
           <p class="muted" id="historyMeta">账目结清后会自动进入历史和排行榜。</p>
           <div class="leaderboard-list" id="leaderboardList"></div>
         </section>
@@ -355,6 +363,7 @@
 
     <script src="./quick-action-lock.js"></script>
     <script src="./history-order.js"></script>
+    <script src="./leaderboard.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

@@ -3,6 +3,7 @@ const keeperModeKey = "bluffbook-keeper-mode-v1";
 const keeperTokenKey = "bluffbook-keeper-token-v1";
 const gameApiPath = "/api/game";
 const { sortPlayersByProfit } = window.BluffBookHistoryOrder;
+const { buildLeaderboard } = window.BluffBookLeaderboard;
 let sharedGameEnabled = window.location.protocol !== "file:";
 let keeperMode = resolveKeeperMode();
 
@@ -15,6 +16,7 @@ const defaultState = {
 let state = loadState();
 let gameWriteQueue = Promise.resolve();
 let cashOutRequest = null;
+let leaderboardRange = "month";
 const openHistoryIds = new Set();
 
 const els = {
@@ -60,6 +62,13 @@ const quickActionLock = window.BluffBookQuickActionLock.createQuickActionLock({
 document.querySelectorAll(".tab").forEach((tab) => {
   tab.addEventListener("click", () => {
     activateTab(tab.dataset.tab);
+  });
+});
+
+document.querySelectorAll("[data-leaderboard-range]").forEach((button) => {
+  button.addEventListener("click", () => {
+    leaderboardRange = button.dataset.leaderboardRange;
+    renderLeaderboard();
   });
 });
 
@@ -842,40 +851,7 @@ function renderHistory() {
     const id = item.querySelector(".history-row")?.dataset.historyId;
     if (id) openHistoryIds.add(id);
   });
-  const monthKey = monthKeyOf(new Date());
-  const monthGames = state.history.filter((game) => monthKeyOf(new Date(game.endedAt)) === monthKey);
-  const balancedGames = monthGames.filter((game) => game.isBalanced);
-  const totalsByPlayer = new Map();
-
-  balancedGames.forEach((game) => {
-    game.players.forEach((player) => {
-      const previous = totalsByPlayer.get(player.name) || { name: player.name, profit: 0, games: 0 };
-      previous.profit += number(player.profit);
-      previous.games += 1;
-      totalsByPlayer.set(player.name, previous);
-    });
-  });
-
-  const leaderboard = [...totalsByPlayer.values()].sort((a, b) => b.profit - a.profit);
-  els.historyMonthTitle.textContent = `${formatMonth(new Date())} 盈利榜`;
-  els.historyMeta.textContent = `本月已存 ${monthGames.length} 局，平账 ${balancedGames.length} 局计入排行榜。`;
-
-  els.leaderboardList.innerHTML = leaderboard.length
-    ? leaderboard
-        .map(
-          (row, index) => `
-            <div class="leaderboard-row">
-              <span class="rank-badge">${index + 1}</span>
-              <span class="row-title">
-                <strong>${escapeHtml(row.name)}</strong>
-                <small>${row.games} 局</small>
-              </span>
-              <strong class="${profitClass(row.profit)}">${signedMoney(row.profit)}</strong>
-            </div>
-          `,
-        )
-        .join("")
-    : `<div class="empty">本月还没有可计入排行的平账牌局。</div>`;
+  renderLeaderboard();
 
   els.historyList.innerHTML = state.history.length
     ? state.history
@@ -922,8 +898,36 @@ function renderHistory() {
   });
 }
 
-function monthKeyOf(date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+function renderLeaderboard() {
+  const now = new Date();
+  const { rangeGames, balancedGames, rows } = buildLeaderboard(state.history, leaderboardRange, now);
+  const isYear = leaderboardRange === "year";
+  const rangeLabel = isYear ? "本年" : "本月";
+
+  document.querySelectorAll("[data-leaderboard-range]").forEach((button) => {
+    const isActive = button.dataset.leaderboardRange === leaderboardRange;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+
+  els.historyMonthTitle.textContent = `${isYear ? `${now.getFullYear()}年` : formatMonth(now)}盈利榜`;
+  els.historyMeta.textContent = `${rangeLabel}已存 ${rangeGames.length} 局，平账 ${balancedGames.length} 局计入排行榜。`;
+  els.leaderboardList.innerHTML = rows.length
+    ? rows
+        .map(
+          (row, index) => `
+            <div class="leaderboard-row">
+              <span class="rank-badge">${index + 1}</span>
+              <span class="row-title">
+                <strong>${escapeHtml(row.name)}</strong>
+                <small>${row.games} 局</small>
+              </span>
+              <strong class="${profitClass(row.profit)}">${signedMoney(row.profit)}</strong>
+            </div>
+          `,
+        )
+        .join("")
+    : `<div class="empty">${rangeLabel}还没有可计入排行的平账牌局。</div>`;
 }
 
 function formatMonth(date) {

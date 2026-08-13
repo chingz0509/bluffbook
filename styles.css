@@ -540,6 +540,51 @@ textarea:focus {
   border-top: 1px solid var(--line-soft);
 }
 
+.leaderboard-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.leaderboard-heading h2 {
+  margin-bottom: 6px;
+}
+
+.leaderboard-range {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: repeat(2, 1fr);
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field);
+}
+
+.leaderboard-range button {
+  min-width: 52px;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.leaderboard-range button.active {
+  background: var(--panel-strong);
+  color: var(--accent-strong);
+}
+
+.leaderboard-range button:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 2px;
+}
+
 .swipe-row {
   position: relative;
   overflow: hidden;

@@ -51,7 +51,19 @@
             <span>总买入</span>
             <strong id="totalBuyIn">0</strong>
           </div>
-          <button class="primary-button" id="goSettle" type="button">去结账</button>
+          <div class="table-footer-actions">
+            <button
+              class="quick-lock-button"
+              id="quickActionLock"
+              type="button"
+              aria-label="快捷记账锁"
+              aria-pressed="true"
+              title="解锁快捷记账"
+            >
+              <span class="quick-lock-icon" aria-hidden="true">🔒</span>
+            </button>
+            <button class="primary-button" id="goSettle" type="button">去结账</button>
+          </div>
         </section>
       </section>
 
@@ -341,6 +353,7 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+    <script src="./quick-action-lock.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

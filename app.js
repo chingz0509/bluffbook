@@ -35,6 +35,7 @@ const els = {
   playerName: document.querySelector("#playerName"),
   tableFooter: document.querySelector("#tableFooter"),
   totalBuyIn: document.querySelector("#totalBuyIn"),
+  quickActionLock: document.querySelector("#quickActionLock"),
   goSettle: document.querySelector("#goSettle"),
   playerList: document.querySelector("#playerList"),
   settleStatusTitle: document.querySelector("#settleStatusTitle"),
@@ -49,6 +50,10 @@ const els = {
   historyList: document.querySelector("#historyList"),
   toast: document.querySelector("#toast"),
 };
+
+const quickActionLock = window.BluffBookQuickActionLock.createQuickActionLock({
+  onChange: render,
+});
 
 document.querySelectorAll(".tab").forEach((tab) => {
   tab.addEventListener("click", () => {
@@ -115,9 +120,11 @@ window.setInterval(() => {
   if (!keeperMode) refreshSharedGame({ silent: true });
 }, 4000);
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) {
-    refreshSharedGame({ silent: true });
+  if (document.hidden) {
+    quickActionLock.lock();
+    return;
   }
+  refreshSharedGame({ silent: true });
 });
 
 els.addPlayerForm.addEventListener("submit", (event) => {
@@ -134,6 +141,11 @@ els.addPlayerForm.addEventListener("submit", (event) => {
 
 els.goSettle.addEventListener("click", () => {
   activateTab("settle");
+});
+
+els.quickActionLock.addEventListener("click", () => {
+  if (!keeperMode) return;
+  quickActionLock.toggle();
 });
 
 els.completeGame.addEventListener("click", async () => {
@@ -295,12 +307,14 @@ async function loginKeeper(password) {
   });
   localStorage.setItem(keeperTokenKey, keeperToken);
   localStorage.setItem(keeperModeKey, "1");
+  quickActionLock.lock();
   keeperMode = true;
   sharedGameEnabled = true;
   applySharedGame(payload.game || {});
 }
 
 function logoutKeeper() {
+  quickActionLock.lock();
   keeperMode = false;
   localStorage.removeItem(keeperModeKey);
   localStorage.removeItem(keeperTokenKey);
@@ -437,6 +451,7 @@ async function saveSharedGame() {
 
 function handleGameSyncError(error) {
   if (error.status === 403) {
+    quickActionLock.lock();
     keeperMode = false;
     localStorage.removeItem(keeperModeKey);
     localStorage.removeItem(keeperTokenKey);
@@ -520,10 +535,16 @@ function render() {
   els.modeChip.textContent = keeperMode ? "记账员模式" : "进入记账";
   els.modeChip.classList.toggle("is-keeper", keeperMode);
   els.addPlayerForm.hidden = !keeperMode;
+  els.quickActionLock.hidden = !keeperMode;
   els.goSettle.hidden = !keeperMode;
   els.completeGame.hidden = !keeperMode;
   els.tableFooter.hidden = state.players.length === 0;
   els.totalBuyIn.textContent = formatMoney(totalBuyIn);
+  const quickActionsLocked = quickActionLock.isLocked();
+  els.quickActionLock.classList.toggle("is-unlocked", !quickActionsLocked);
+  els.quickActionLock.setAttribute("aria-pressed", String(quickActionsLocked));
+  els.quickActionLock.title = quickActionsLocked ? "解锁快捷记账" : "锁定快捷记账";
+  els.quickActionLock.querySelector(".quick-lock-icon").textContent = quickActionsLocked ? "🔒" : "🔓";
 
   renderPlayers();
   renderSettlement();
@@ -558,9 +579,9 @@ function renderPlayers() {
           `
         : `
             <div class="quick-actions">
-              <button type="button" data-add="200">+200</button>
-              <button type="button" data-add="400">+400</button>
-              <button type="button" data-add="-200">-200</button>
+              <button type="button" data-add="200" ${quickActionLock.isLocked() ? "disabled" : ""}>+200</button>
+              <button type="button" data-add="400" ${quickActionLock.isLocked() ? "disabled" : ""}>+400</button>
+              <button type="button" data-add="-200" ${quickActionLock.isLocked() ? "disabled" : ""}>-200</button>
               <button type="button" data-leave>离桌</button>
             </div>
           `;
@@ -591,11 +612,13 @@ function renderPlayers() {
 
     row.querySelectorAll("[data-add]").forEach((button) => {
       button.addEventListener("click", () => {
+        if (quickActionLock.isLocked()) return;
         const player = state.players.find((item) => item.id === id);
         if (player.isAway) return;
         const delta = number(button.dataset.add);
         player.buyIn = Math.max(0, number(player.buyIn) + delta);
         player.buyInCount = Math.max(0, number(player.buyInCount) + delta / 200);
+        quickActionLock.recordAction();
         saveAndRender({ syncGame: true });
       });
     });

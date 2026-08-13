@@ -43,3 +43,31 @@ test("history expansion survives shared refresh re-renders", async () => {
   assert.match(script, /openHistoryIds\.add\(row\.dataset\.historyId\)/);
   assert.match(script, /openHistoryIds\.has\(game\.id\)/);
 });
+
+test("the keeper footer includes an accessible quick-action lock", async () => {
+  const html = await readFile(new URL("index.html", root), "utf8");
+
+  assert.match(html, /<script src="\.\/quick-action-lock\.js"><\/script>\s*<script src="\.\/app\.js"><\/script>/);
+  assert.match(html, /id="quickActionLock"[^>]*aria-label="快捷记账锁"/);
+  assert.match(html, /class="quick-lock-icon"[^>]*aria-hidden="true"/);
+});
+
+test("keeper quick actions honor the local safety lock", async () => {
+  const script = await readFile(new URL("app.js", root), "utf8");
+
+  assert.match(script, /createQuickActionLock\(\{[\s\S]*?onChange: render[\s\S]*?\}\)/);
+  assert.match(script, /els\.quickActionLock\.hidden = !keeperMode;/);
+  assert.match(script, /data-add="200"[^>]*\$\{quickActionLock\.isLocked\(\) \? "disabled" : ""\}/);
+  assert.match(script, /if \(quickActionLock\.isLocked\(\)\) return;/);
+  assert.match(script, /quickActionLock\.recordAction\(\);/);
+  assert.match(script, /data-leave>离桌<\/button>/);
+  assert.doesNotMatch(script, /data-leave[^>]*disabled/);
+});
+
+test("quick actions relock when keeper control is interrupted", async () => {
+  const script = await readFile(new URL("app.js", root), "utf8");
+
+  assert.match(script, /visibilitychange[\s\S]*?if \(document\.hidden\) \{\s*quickActionLock\.lock\(\);/);
+  assert.match(script, /function logoutKeeper\(\) \{\s*quickActionLock\.lock\(\);/);
+  assert.match(script, /if \(error\.status === 403\) \{\s*quickActionLock\.lock\(\);/);
+});

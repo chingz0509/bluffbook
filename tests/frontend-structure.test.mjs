@@ -47,7 +47,10 @@ test("history expansion survives shared refresh re-renders", async () => {
 test("the keeper footer includes an accessible quick-action lock", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
 
-  assert.match(html, /<script src="\.\/quick-action-lock\.js"><\/script>\s*<script src="\.\/app\.js"><\/script>/);
+  assert.match(
+    html,
+    /<script src="\.\/quick-action-lock\.js"><\/script>\s*<script src="\.\/history-order\.js"><\/script>\s*<script src="\.\/app\.js"><\/script>/,
+  );
   assert.match(html, /id="quickActionLock"[^>]*aria-label="快捷记账锁"/);
   assert.match(html, /class="quick-lock-icon"[^>]*aria-hidden="true"/);
 });

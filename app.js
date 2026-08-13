@@ -2,6 +2,7 @@ const storageKey = "texas-ledger-v1";
 const keeperModeKey = "bluffbook-keeper-mode-v1";
 const keeperTokenKey = "bluffbook-keeper-token-v1";
 const gameApiPath = "/api/game";
+const { sortPlayersByProfit } = window.BluffBookHistoryOrder;
 let sharedGameEnabled = window.location.protocol !== "file:";
 let keeperMode = resolveKeeperMode();
 
@@ -891,7 +892,7 @@ function renderHistory() {
                 <strong class="${game.isBalanced ? "positive" : "negative"}">${game.isBalanced ? "平账" : "未平账"}</strong>
               </button>
               <div class="history-detail"${openHistoryIds.has(game.id) ? "" : " hidden"}>
-                ${game.players
+                ${sortPlayersByProfit(game.players)
                   .map(
                     (player) => `
                       <div class="detail-row">

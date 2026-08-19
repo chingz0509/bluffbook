@@ -37,7 +37,7 @@ const els = {
   cashOutCancel: document.querySelector("#cashOutCancel"),
   addPlayerForm: document.querySelector("#addPlayerForm"),
   playerName: document.querySelector("#playerName"),
-  playerNameSuggestions: document.querySelector("#playerNameSuggestions"),
+  nameDropdown: document.querySelector("#nameDropdown"),
   tableFooter: document.querySelector("#tableFooter"),
   totalBuyIn: document.querySelector("#totalBuyIn"),
   quickActionLock: document.querySelector("#quickActionLock"),
@@ -142,14 +142,32 @@ document.addEventListener("visibilitychange", () => {
 els.addPlayerForm.addEventListener("submit", (event) => {
   event.preventDefault();
   if (!keeperMode) return;
+  addPlayerByName(els.playerName.value);
+});
 
-  const name = els.playerName.value.trim();
+els.playerName.addEventListener("focus", renderNameDropdown);
+els.playerName.addEventListener("input", renderNameDropdown);
+els.playerName.addEventListener("blur", () => {
+  setTimeout(hideNameDropdown, 150);
+});
+els.nameDropdown.addEventListener("pointerdown", (event) => {
+  const option = event.target.closest(".name-option");
+  if (!option) return;
+  event.preventDefault();
+  els.playerName.value = option.dataset.name;
+  hideNameDropdown();
+  els.playerName.focus();
+});
+
+function addPlayerByName(rawName) {
+  const name = String(rawName || "").trim();
   if (!name) return;
 
   state.players.push(createPlayer(name));
   els.playerName.value = "";
+  hideNameDropdown();
   saveAndRender({ syncGame: true });
-});
+}
 
 els.goSettle.addEventListener("click", () => {
   activateTab("settle");
@@ -561,12 +579,9 @@ function render() {
   renderPlayers();
   renderSettlement();
   renderHistory();
-  renderPlayerNameSuggestions();
 }
 
-let playerNameSuggestionKey = null;
-
-function renderPlayerNameSuggestions() {
+function playerNameSuggestions() {
   const taken = new Set(state.players.map((player) => player.name));
   const seen = new Set();
   const names = [];
@@ -579,12 +594,29 @@ function renderPlayerNameSuggestions() {
       }
     });
   });
-  const key = names.join("\n");
-  if (key === playerNameSuggestionKey) return;
-  playerNameSuggestionKey = key;
-  els.playerNameSuggestions.innerHTML = names
-    .map((name) => `<option value="${escapeHtml(name)}"></option>`)
+  return names;
+}
+
+function renderNameDropdown() {
+  const keyword = els.playerName.value.trim().toLowerCase();
+  const names = playerNameSuggestions().filter(
+    (name) => !keyword || name.toLowerCase().includes(keyword),
+  );
+  if (names.length === 0) {
+    hideNameDropdown();
+    return;
+  }
+  els.nameDropdown.innerHTML = names
+    .map(
+      (name) =>
+        `<button type="button" class="name-option" data-name="${escapeHtml(name)}">${escapeHtml(name)}</button>`,
+    )
     .join("");
+  els.nameDropdown.hidden = false;
+}
+
+function hideNameDropdown() {
+  els.nameDropdown.hidden = true;
 }
 
 function renderPlayers() {

@@ -432,6 +432,44 @@ input:disabled {
   gap: 8px;
 }
 
+.name-picker {
+  position: relative;
+}
+
+.name-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+}
+
+.name-option {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  text-align: left;
+  background: none;
+  border: 0;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.name-option + .name-option {
+  border-top: 1px solid var(--line-soft);
+}
+
+.name-option:active {
+  background: var(--field);
+}
+
 input,
 textarea {
   width: 100%;

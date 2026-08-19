@@ -40,8 +40,10 @@
 
       <section class="tab-view active" id="tableView">
         <form class="add-player" id="addPlayerForm">
-          <input id="playerName" autocomplete="off" placeholder="玩家姓名" list="playerNameSuggestions" />
-          <datalist id="playerNameSuggestions"></datalist>
+          <div class="name-picker">
+            <input id="playerName" autocomplete="off" placeholder="输入或选择玩家姓名" />
+            <div class="name-dropdown" id="nameDropdown" hidden></div>
+          </div>
           <button class="primary-button" type="submit">添加</button>
         </form>
 

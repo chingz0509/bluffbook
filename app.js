@@ -37,6 +37,7 @@ const els = {
   cashOutCancel: document.querySelector("#cashOutCancel"),
   addPlayerForm: document.querySelector("#addPlayerForm"),
   playerName: document.querySelector("#playerName"),
+  playerNameSuggestions: document.querySelector("#playerNameSuggestions"),
   tableFooter: document.querySelector("#tableFooter"),
   totalBuyIn: document.querySelector("#totalBuyIn"),
   quickActionLock: document.querySelector("#quickActionLock"),
@@ -560,6 +561,30 @@ function render() {
   renderPlayers();
   renderSettlement();
   renderHistory();
+  renderPlayerNameSuggestions();
+}
+
+let playerNameSuggestionKey = null;
+
+function renderPlayerNameSuggestions() {
+  const taken = new Set(state.players.map((player) => player.name));
+  const seen = new Set();
+  const names = [];
+  state.history.forEach((game) => {
+    (game.players || []).forEach((player) => {
+      const name = String(player.name || "").trim();
+      if (name && !taken.has(name) && !seen.has(name)) {
+        seen.add(name);
+        names.push(name);
+      }
+    });
+  });
+  const key = names.join("\n");
+  if (key === playerNameSuggestionKey) return;
+  playerNameSuggestionKey = key;
+  els.playerNameSuggestions.innerHTML = names
+    .map((name) => `<option value="${escapeHtml(name)}"></option>`)
+    .join("");
 }
 
 function renderPlayers() {

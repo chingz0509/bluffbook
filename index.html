@@ -4,14 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#101415" />
-    <title>BluffBook</title>
+    <title>积分读书</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="app-shell">
       <header class="topbar">
         <div>
-          <h1>BluffBook</h1>
+          <h1>积分读书</h1>
         </div>
         <button class="mode-chip" id="modeChip" type="button">实时查看</button>
       </header>
@@ -40,7 +40,8 @@
 
       <section class="tab-view active" id="tableView">
         <form class="add-player" id="addPlayerForm">
-          <input id="playerName" autocomplete="off" placeholder="玩家姓名" />
+          <input id="playerName" autocomplete="off" placeholder="玩家姓名" list="playerNameSuggestions" />
+          <datalist id="playerNameSuggestions"></datalist>
           <button class="primary-button" type="submit">添加</button>
         </form>
 
